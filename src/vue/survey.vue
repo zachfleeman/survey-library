@@ -48,7 +48,7 @@ import { VueSurveyModel as SurveyModel } from "./surveyModel";
 
 @Component
 export class Survey extends Vue {
-  @Prop survey: SurveyModel;
+  @Prop() survey: SurveyModel;
 
   forceUpdate() {
     this.$forceUpdate();

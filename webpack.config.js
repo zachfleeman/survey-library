@@ -2,13 +2,14 @@
 
 var webpack = require("webpack");
 var path = require("path");
-var ExtractTextPlugin = require("extract-text-webpack-plugin");
+var MiniCssExtractPlugin = require("mini-css-extract-plugin");
 var dts = require("dts-bundle");
 var rimraf = require("rimraf");
 var GenerateJsonPlugin = require("generate-json-webpack-plugin");
 var packageJson = require("./package.json");
 var fs = require("fs");
 var replace = require("replace-in-file");
+var VueLoaderPlugin = require("vue-loader/lib/plugin");
 
 var banner = [
   "surveyjs - Survey JavaScript library v" + packageJson.version,
@@ -89,6 +90,11 @@ var platformOptions = {
     },
     keywords: ["vue"],
     dependencies: { vue: "^2.1.10" }
+  },
+  svelte: {
+    externals: {},
+    keywords: ["surveyjs", "svelte"],
+    dependencies: {}
   }
 };
 
@@ -97,10 +103,8 @@ module.exports = function(options) {
   options.platformPrefix =
     options.platform == "knockout" ? "ko" : options.platform;
   var packagePath = "./packages/survey-" + options.platform + "/";
-  var extractCSS = new ExtractTextPlugin({
-    filename:
-      packagePath +
-      (options.buildType === "prod" ? "survey.min.css" : "survey.css")
+  var extractCSS = new MiniCssExtractPlugin({
+    filename: options.buildType === "prod" ? "survey.min.css" : "survey.css"
   });
 
   var percentage_handler = function handler(percentage, msg) {
@@ -108,9 +112,19 @@ module.exports = function(options) {
       console.log("Build started... good luck!");
     } else if (1 === percentage) {
       if (options.buildType === "prod") {
+        if (options.platform === "svelte") return;
         dts.bundle({
-          name: "../../survey." + options.platformPrefix,
-          main: packagePath + "typings/entries/" + options.platform + ".d.ts",
+          name: path.resolve(
+            __dirname,
+            "packages/survey-" +
+              options.platform +
+              "/survey." +
+              options.platformPrefix
+          ),
+          main: path.resolve(
+            __dirname,
+            "typings/entries/" + options.platform + ".d.ts"
+          ),
           outputAsModuleFolder: true,
           headerText: dts_banner
         });
@@ -138,7 +152,8 @@ module.exports = function(options) {
             .pipe(fs.createWriteStream(packagePath + "survey-vue.min.js"));
         }
 
-        rimraf.sync(packagePath + "typings");
+        rimraf.sync(path.resolve(__dirname, "typings"));
+
         fs
           .createReadStream("./npmREADME.md")
           .pipe(fs.createWriteStream(packagePath + "README.md"));
@@ -188,6 +203,7 @@ module.exports = function(options) {
     entry: {},
     resolve: {
       extensions: [".ts", ".js", ".tsx", ".scss"],
+      mainFields: ["svelte", "browser", "module", "main"],
       alias: {
         tslib: path.join(__dirname, "./src/entries/chunks/helpers.ts")
       }
@@ -196,16 +212,22 @@ module.exports = function(options) {
       rules: [
         {
           test: /\.(ts|tsx)$/,
+          exclude: path.join(__dirname, "./src/entries/svelte.ts"),
           use: {
             loader: "ts-loader",
             options: {
               compilerOptions: {
                 declaration: options.buildType === "prod",
-                outDir: packagePath + "typings/"
+                outDir: "typings/"
               },
               appendTsSuffixTo: [/\.vue$/]
             }
           }
+        },
+        {
+          test: /\.svelte$/,
+          exclude: /node_modules/,
+          use: "svelte-loader"
         },
         {
           test: /\.vue$/,
@@ -218,25 +240,25 @@ module.exports = function(options) {
         },
         {
           test: /\.scss$/,
-          use: extractCSS.extract({
-            fallback: "style-loader",
-            use: [
-              {
-                loader: "css-loader",
-                options: {
-                  sourceMap: true,
-                  minimize: options.buildType === "prod",
-                  importLoaders: true
-                }
-              },
-              {
-                loader: "sass-loader",
-                options: {
-                  sourceMap: true
-                }
+          use: [
+            {
+              loader: MiniCssExtractPlugin.loader
+            },
+            {
+              loader: "css-loader",
+              options: {
+                sourceMap: true,
+                minimize: options.buildType === "prod",
+                importLoaders: true
               }
-            ]
-          })
+            },
+            {
+              loader: "sass-loader",
+              options: {
+                sourceMap: true
+              }
+            }
+          ]
         },
         {
           test: /\.svg/,
@@ -249,11 +271,11 @@ module.exports = function(options) {
       ]
     },
     output: {
-      filename:
-        packagePath +
-        "[name]" +
-        (options.buildType === "prod" ? ".min" : "") +
-        ".js",
+      path: path.resolve(
+        __dirname,
+        "packages/survey-" + options.platform + "/"
+      ),
+      filename: "[name]" + (options.buildType === "prod" ? ".min" : "") + ".js",
       library: "Survey",
       libraryTarget: "umd",
       umdNamedDefine: true
@@ -268,21 +290,17 @@ module.exports = function(options) {
       new webpack.BannerPlugin({
         banner: banner
       }),
-      extractCSS
+      extractCSS,
+      new VueLoaderPlugin()
     ],
-    devtool: "inline-source-map"
+    devtool: "inline-source-map",
+    mode: options.buildType === "prod" ? "production" : "development"
   };
 
   if (options.buildType === "prod") {
     config.devtool = false;
     config.plugins = config.plugins.concat([
-      new webpack.optimize.UglifyJsPlugin(),
-      new GenerateJsonPlugin(
-        packagePath + "package.json",
-        packagePlatformJson,
-        undefined,
-        2
-      )
+      new GenerateJsonPlugin("package.json", packagePlatformJson, undefined, 2)
     ]);
   }
 

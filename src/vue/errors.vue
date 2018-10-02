@@ -14,7 +14,7 @@ import { Question } from "../question";
 
 @Component
 export class Errors extends Vue {
-  @Prop question: Question;
+  @Prop() question: Question;
 }
 Vue.component("survey-errors", Errors);
 export default Errors;

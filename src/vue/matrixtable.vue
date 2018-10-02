@@ -53,7 +53,7 @@ import { MatrixDropdownRowModel } from "../question_matrixdropdown";
 
 @Component
 export class MatrixTable extends Vue {
-  @Prop question: QuestionMatrixDropdownModelBase;
+  @Prop() question: QuestionMatrixDropdownModelBase;
   get matrixDynamic(): QuestionMatrixDynamicModel {
     return <QuestionMatrixDynamicModel>this.question;
   }

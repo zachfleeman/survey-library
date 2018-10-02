@@ -15,11 +15,11 @@
         mixins: [helpers]
     })
     export class Row extends Vue {
-        @Prop
+        @Prop()
         row: any
-        @Prop
+        @Prop()
         css: any
-        @Prop
+        @Prop()
         survey: SurveyModel
 
         get questionRootClass() {

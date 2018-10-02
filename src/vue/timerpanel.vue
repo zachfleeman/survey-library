@@ -9,9 +9,9 @@
 
     @Component
     export class TimerPanel extends Vue {
-        @Prop
+        @Prop()
         survey: SurveyModel
-        @Prop
+        @Prop()
         css: any
         get text() {
             return this.survey.timerInfoText;

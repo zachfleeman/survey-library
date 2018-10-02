@@ -13,8 +13,8 @@ import { Question } from "../question";
 
 @Component
 export class OtherChoice extends Vue {
-  @Prop question: Question;
-  @Prop commentClass: any;
+  @Prop() question: Question;
+  @Prop() commentClass: any;
 }
 Vue.component("survey-other-choice", OtherChoice);
 export default OtherChoice;

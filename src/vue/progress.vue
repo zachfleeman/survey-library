@@ -15,9 +15,9 @@
 
     @Component
     export class Progress extends Vue {
-        @Prop
+        @Prop()
         survey: SurveyModel
-        @Prop
+        @Prop()
         css: any
         get progress() {
             return this.survey.getProgress() + '%';

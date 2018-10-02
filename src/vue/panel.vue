@@ -25,9 +25,9 @@ import { helpers } from "./helpers";
   mixins: [helpers]
 })
 export class Panel extends Vue {
-  @Prop question: PanelModel;
-  @Prop isEditMode: Boolean;
-  @Prop css: any;
+  @Prop() question: PanelModel;
+  @Prop() isEditMode: Boolean;
+  @Prop() css: any;
   private isCollapsedValue: boolean = false;
 
   mounted() {

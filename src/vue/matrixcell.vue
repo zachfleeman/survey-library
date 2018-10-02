@@ -14,8 +14,8 @@ import { MatrixDropdownCell } from "../question_matrixdropdownbase";
 
 @Component
 export class MatrixCell extends Vue {
-  @Prop question: Question;
-  @Prop cell: MatrixDropdownCell;
+  @Prop() question: Question;
+  @Prop() cell: MatrixDropdownCell;
   isVisible: boolean = false;
   getWidgetComponentName(element: Question) {
     if (element.customWidget) {
