@@ -90,11 +90,6 @@ var platformOptions = {
     },
     keywords: ["vue"],
     dependencies: { vue: "^2.1.10" }
-  },
-  svelte: {
-    externals: {},
-    keywords: ["surveyjs", "svelte"],
-    dependencies: {}
   }
 };
 
@@ -112,7 +107,6 @@ module.exports = function(options) {
       console.log("Build started... good luck!");
     } else if (1 === percentage) {
       if (options.buildType === "prod") {
-        if (options.platform === "svelte") return;
         dts.bundle({
           name: path.resolve(
             __dirname,
@@ -203,7 +197,6 @@ module.exports = function(options) {
     entry: {},
     resolve: {
       extensions: [".ts", ".js", ".tsx", ".scss"],
-      mainFields: ["svelte", "browser", "module", "main"],
       alias: {
         tslib: path.join(__dirname, "./src/entries/chunks/helpers.ts")
       }
@@ -212,7 +205,6 @@ module.exports = function(options) {
       rules: [
         {
           test: /\.(ts|tsx)$/,
-          exclude: path.join(__dirname, "./src/entries/svelte.ts"),
           use: {
             loader: "ts-loader",
             options: {
@@ -223,11 +215,6 @@ module.exports = function(options) {
               appendTsSuffixTo: [/\.vue$/]
             }
           }
-        },
-        {
-          test: /\.svelte$/,
-          exclude: /node_modules/,
-          use: "svelte-loader"
         },
         {
           test: /\.vue$/,
