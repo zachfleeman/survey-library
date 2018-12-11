@@ -1,5 +1,10 @@
 import { Helpers, HashTable } from "./helpers";
 
+export interface ValueCore {
+  hasValue: boolean;
+  value: any;
+}
+
 export class ProcessValue {
   public values: HashTable<any> = null;
   public properties: HashTable<any> = null;
@@ -25,7 +30,7 @@ export class ProcessValue {
     return res.value;
   }
   private getValueCore(text: string, values: any): any {
-    var res = { hasValue: false, value: null };
+    var res:ValueCore = { hasValue: false, value: null };
     var curValue = values;
     if (!curValue) return res;
     if (
@@ -43,8 +48,8 @@ export class ProcessValue {
         if (!isFirst) text = text.substr(1);
         var curName = this.getFirstName(text);
         if (!curName) return res;
-        if (Helpers.isValueEmpty(curValue[curName])) return res;
-        curValue = curValue[curName];
+        curValue = this.getObjectValue(curValue, curName);
+        if (Helpers.isValueEmpty(curValue)) return res;
         text = text.substr(curName.length);
       } else {
         if (!Array.isArray(curValue)) return res;
@@ -64,6 +69,14 @@ export class ProcessValue {
     res.value = curValue;
     res.hasValue = true;
     return res;
+  }
+  private getObjectValue(obj: any, name: string): any {
+    if (!!obj[name]) return obj[name];
+    name = name.toLowerCase();
+    for (var key in obj) {
+      if (key.toLowerCase() == name) return obj[key];
+    }
+    return null;
   }
   private getIntValue(str: any) {
     if (str == "0" || ((str | 0) > 0 && str % 1 == 0)) return Number(str);

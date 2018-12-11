@@ -226,13 +226,13 @@ export class QuestionMatrixDynamicModel extends QuestionMatrixDropdownModelBase
       var q = this.columns[i].templateQuestion;
       if (!!q && !this.isValueEmpty(q.getDefaultValue())) {
         res = res || {};
-        res[this.columns[i].name] = q.getDefaultValue();
+        (<any>res)[this.columns[i].name] = q.getDefaultValue();
       }
     }
     if (!this.isValueEmpty(this.defaultRowValue)) {
       for (var key in this.defaultRowValue) {
         res = res || {};
-        res[key] = this.defaultRowValue[key];
+        (<any>res)[key] = this.defaultRowValue[key];
       }
     }
     if (isRowAdded && this.defaultValueFromLastRow) {
@@ -241,7 +241,7 @@ export class QuestionMatrixDynamicModel extends QuestionMatrixDropdownModelBase
         var rowValue = val[this.rowCount - 2];
         for (var key in rowValue) {
           res = res || {};
-          res[key] = rowValue[key];
+          (<any>res)[key] = rowValue[key];
         }
       }
     }
@@ -371,7 +371,7 @@ export class QuestionMatrixDynamicModel extends QuestionMatrixDropdownModelBase
   }
   protected getDisplayValueCore(keysAsText: boolean): any {
     var values = this.value;
-    if (!values) return values;
+    if (!values || !Array.isArray(values)) return values;
     var rows = this.visibleRows;
     for (var i = 0; i < rows.length && i < values.length; i++) {
       var val = values[i];
@@ -422,7 +422,7 @@ export class QuestionMatrixDynamicModel extends QuestionMatrixDropdownModelBase
     if (!this.keyName || !this.generatedVisibleRows) return false;
     var column = this.getColumnByName(this.keyName);
     if (!column) return false;
-    var keyValues = [];
+    var keyValues = <Array<any>>[];
     var res = false;
     for (var i = 0; i < this.generatedVisibleRows.length; i++) {
       res =
@@ -473,6 +473,7 @@ export class QuestionMatrixDynamicModel extends QuestionMatrixDropdownModelBase
     if (this.generatedVisibleRows) {
       this.generatedVisibleRows = null;
       this.generatedVisibleRows = this.visibleRows;
+      this.fireCallback(this.visibleRowsChangedCallback);
     }
   }
   protected createNewValue(curValue: any): any {
@@ -493,7 +494,7 @@ export class QuestionMatrixDynamicModel extends QuestionMatrixDropdownModelBase
   ): any {
     var isEmpty = true;
     for (var i = 0; i < newValue.length; i++) {
-      if (Object.keys(newValue[i]).length > 0) {
+      if (this.isObject(newValue[i]) && Object.keys(newValue[i]).length > 0) {
         isEmpty = false;
         break;
       }
@@ -522,6 +523,7 @@ export class QuestionMatrixDynamicModel extends QuestionMatrixDropdownModelBase
 JsonObject.metaData.addClass(
   "matrixdynamic",
   [
+    { name: "rowsVisibleIf:condition", visible: false },
     { name: "rowCount:number", default: 2 },
     { name: "minRowCount:number", default: 0 },
     {

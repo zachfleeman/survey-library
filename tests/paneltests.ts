@@ -2,6 +2,7 @@ import { SurveyModel } from "../src/survey";
 import { PageModel } from "../src/page";
 import { QuestionFactory } from "../src/questionfactory";
 import { Question } from "../src/question";
+import { PanelModel } from "../src/panel";
 import { QuestionTextModel } from "../src/question_text";
 import { JsonObject, JsonUnknownPropertyError } from "../src/jsonobject";
 
@@ -147,6 +148,14 @@ QUnit.test("panel rows generation - nested panel", function(assert) {
     false,
     "The panel row is invisible since all questions are invisible"
   );
+  p1q1.visible = true;
+  assert.equal(page.rows[1].visible, true, "The panel row is visible again");
+  p1.removeElement(p1q1);
+  assert.equal(
+    page.rows[1].visible,
+    false,
+    "The panel row is invisible - it is empty"
+  );
 });
 QUnit.test("panel isExpanded and isCollapsed", function(assert) {
   var page = new PageModel();
@@ -266,5 +275,83 @@ QUnit.test("Panel.getComments()", function(assert) {
     page.getComments(),
     { q1: "val1", q2: "val2", q3: "val3" },
     "Page.getComments() works correctly"
+  );
+});
+
+QUnit.test("Page getPanels and Survey getAllPanels", function(assert) {
+  var survey = new SurveyModel();
+  var page1 = survey.addNewPage("page1");
+  var panel1 = page1.addNewPanel("p1");
+  var panel2 = page1.addNewPanel("p2");
+
+  var page2 = survey.addNewPage("page2");
+  var panel3 = page2.addNewPanel("p3");
+
+  assert.equal(
+    survey.getAllPanels().length,
+    3,
+    "There are 3 panels in the survey"
+  );
+  assert.equal(
+    survey.pages[0].getPanels().length,
+    2,
+    "There are 2 panels in the first page"
+  );
+  assert.equal(
+    survey.pages[1].getPanels().length,
+    1,
+    "There is 1 panel in the second page"
+  );
+});
+
+QUnit.test("Get first focused question correctly, Bug#1417", function(assert) {
+  var survey = new SurveyModel({
+    elements: [
+      { type: "html", name: "q1" },
+      {
+        type: "panel",
+        name: "p1",
+        visible: false,
+        elements: [
+          { type: "text", name: "q2" },
+          { type: "text", name: "q3", isRequired: true }
+        ]
+      },
+      {
+        type: "panel",
+        name: "p2",
+        visible: false,
+        elements: [
+          {
+            type: "panel",
+            name: "p3",
+            elements: [
+              { type: "text", name: "q4" },
+              { type: "text", name: "q5", isRequired: true }
+            ]
+          }
+        ]
+      },
+      {
+        type: "panel",
+        name: "p4",
+        elements: [
+          { type: "text", name: "q6" },
+          { type: "text", name: "q7", isRequired: true }
+        ]
+      }
+    ]
+  });
+  var page = survey.pages[0];
+  page.hasErrors(true);
+  assert.equal(
+    page.getFirstQuestionToFocus().name,
+    "q6",
+    "The first question for focusing is q6"
+  );
+  assert.equal(
+    page.getFirstQuestionToFocus(true).name,
+    "q7",
+    "The first question for focusing with errors is q7"
   );
 });

@@ -40,6 +40,9 @@ export class QuestionCheckboxModel extends QuestionCheckboxBase {
       }
     );
   }
+  protected getFirstInputElementId(): string {
+    return this.inputId + "_0";
+  }
   /**
    * Returns the select all item. By using this property, you may change programmatically it's value and text.
    * @see hasSelectAll
@@ -213,16 +216,27 @@ export class QuestionCheckboxModel extends QuestionCheckboxBase {
     }
     return str;
   }
-  public clearIncorrectValues() {
+  protected clearIncorrectValuesCore() {
+    this.clearIncorrectAndDisabledValues(false);
+  }
+  protected clearDisabledValuesCore() {
+    this.clearIncorrectAndDisabledValues(true);
+  }
+  private clearIncorrectAndDisabledValues(clearDisabled: boolean) {
     var val = this.value;
     if (!val) return;
     if (!Array.isArray(val) || val.length == 0) {
-      this.clearValue();
+      if (!clearDisabled) {
+        this.clearValue();
+      }
       return;
     }
     var newValue = [];
     for (var i = 0; i < val.length; i++) {
-      if (!this.hasUnknownValue(val[i], true)) {
+      if (
+        (!clearDisabled && !this.hasUnknownValue(val[i], true)) ||
+        (clearDisabled && !this.isValueDisabled(val[i]))
+      ) {
         newValue.push(val[i]);
       }
     }

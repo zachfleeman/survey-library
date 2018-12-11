@@ -20,7 +20,7 @@ export class QuestionRatingModel extends Question {
     this.registerFunctionOnPropertyValueChanged("rates", function() {
       self.fireCallback(self.rateValuesChangedCallback);
     });
-    this.onPropertyChanged.add(function(sender, options) {
+    this.onPropertyChanged.add(function(sender: any, options: any) {
       if (
         options.name == "rateMin" ||
         options.name == "rateMax" ||
@@ -166,13 +166,7 @@ JsonObject.metaData.addClass(
   [
     "hasComment:boolean",
     {
-      name: "rateValues:itemvalues",
-      onGetValue: function(obj: any) {
-        return ItemValue.getData(obj.rateValues);
-      },
-      onSetValue: function(obj: any, value: any) {
-        obj.rateValues = value;
-      }
+      name: "rateValues:itemvalue[]"
     },
     { name: "rateMin:number", default: 1 },
     { name: "rateMax:number", default: 5 },

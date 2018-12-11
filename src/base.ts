@@ -1,13 +1,12 @@
 import { ILocalizableOwner, LocalizableString } from "./localizablestring";
 import { HashTable, Helpers } from "./helpers";
-import { ItemValue } from "./itemvalue";
 import { CustomPropertiesCollection, JsonObject } from "./jsonobject";
 
 export interface ISurveyData {
   getValue(name: string): any;
-  setValue(name: string, newValue: any);
+  setValue(name: string, newValue: any): any;
   getComment(name: string): string;
-  setComment(name: string, newValue: string);
+  setComment(name: string, newValue: string): any;
   getAllValues(): any;
   getFilteredValues(): any;
   getFilteredProperties(): any;
@@ -20,26 +19,38 @@ export interface ISurvey extends ITextProcessor {
   currentPage: IPage;
   pages: Array<IPage>;
   isPageStarted(page: IPage): boolean;
-  pageVisibilityChanged(page: IPage, newValue: boolean);
-  panelVisibilityChanged(panel: IPanel, newValue: boolean);
-  questionVisibilityChanged(question: IQuestion, newValue: boolean);
+  pageVisibilityChanged(page: IPage, newValue: boolean): any;
+  panelVisibilityChanged(panel: IPanel, newValue: boolean): any;
+  questionVisibilityChanged(question: IQuestion, newValue: boolean): any;
   questionsOrder: string;
   questionAdded(
     question: IQuestion,
     index: number,
     parentPanel: any,
     rootPanel: any
-  );
-  panelAdded(panel: IElement, index: number, parentPanel: any, rootPanel: any);
-  questionRemoved(question: IQuestion);
-  panelRemoved(panel: IElement);
+  ): any;
+  panelAdded(
+    panel: IElement,
+    index: number,
+    parentPanel: any,
+    rootPanel: any
+  ): any;
+  questionRemoved(question: IQuestion): any;
+  panelRemoved(panel: IElement): any;
+  questionRenamed(
+    question: IQuestion,
+    oldName: string,
+    oldValueName: string
+  ): any;
   validateQuestion(question: IQuestion): SurveyError;
   validatePanel(panel: IPanel): SurveyError;
   hasVisibleQuestionByValueName(valueName: string): boolean;
+  questionCountByValueName(valueName: string): number;
   processHtml(html: string): string;
   getSurveyMarkdownHtml(element: Base, text: string): string;
   isDisplayMode: boolean;
   isDesignMode: boolean;
+  areInvisibleElementsShowing: boolean;
   isLoadingFromJson: boolean;
 
   requiredText: string;
@@ -53,43 +64,48 @@ export interface ISurvey extends ITextProcessor {
 
   maxTextLength: number;
   maxOthersLength: number;
+  clearValueOnDisableItems: boolean;
 
   uploadFiles(
     name: string,
     files: File[],
     uploadingCallback: (status: string, data: any) => any
-  );
+  ): any;
   downloadFile(
     name: string,
     content: string,
     callback: (status: string, data: any) => any
-  );
+  ): any;
   clearFiles(
     name: string,
     value: any,
     fileName: string,
     clearCallback: (status: string, data: any) => any
-  );
+  ): any;
   updateChoicesFromServer(
     question: IQuestion,
-    choices: Array<ItemValue>,
+    choices: Array<any>,
     serverResult: any
-  ): Array<ItemValue>;
-  updateQuestionCssClasses(question: IQuestion, cssClasses: any);
-  updatePanelCssClasses(panel: IPanel, cssClasses: any);
-  afterRenderQuestion(question: IQuestion, htmlElement);
-  afterRenderPanel(panel: IElement, htmlElement);
-  afterRenderPage(htmlElement);
-  matrixRowAdded(question: IQuestion);
-  matrixBeforeRowAdded(options: { question: IQuestion; canAddRow: boolean });
-  matrixRowRemoved(question: IQuestion, rowIndex: number, row: any);
-  matrixCellCreated(question: IQuestion, options: any);
-  matrixAfterCellRender(question: IQuestion, options: any);
-  matrixCellValueChanged(question: IQuestion, options: any);
+  ): Array<any>;
+  updateQuestionCssClasses(question: IQuestion, cssClasses: any): any;
+  updatePanelCssClasses(panel: IPanel, cssClasses: any): any;
+  afterRenderQuestion(question: IQuestion, htmlElement: any): any;
+  afterRenderPanel(panel: IElement, htmlElement: any): any;
+  afterRenderPage(htmlElement: any): any;
+  matrixRowAdded(question: IQuestion): any;
+  matrixBeforeRowAdded(options: {
+    question: IQuestion;
+    canAddRow: boolean;
+  }): any;
+  matrixRowRemoved(question: IQuestion, rowIndex: number, row: any): any;
+  matrixCellCreated(question: IQuestion, options: any): any;
+  matrixAfterCellRender(question: IQuestion, options: any): any;
+  matrixCellValueChanged(question: IQuestion, options: any): any;
   matrixCellValidate(question: IQuestion, options: any): SurveyError;
-  dynamicPanelAdded(question: IQuestion);
-  dynamicPanelRemoved(question: IQuestion, panelIndex: number);
-  dynamicPanelItemValueChanged(question: IQuestion, options: any);
+  dynamicPanelAdded(question: IQuestion): any;
+  dynamicPanelRemoved(question: IQuestion, panelIndex: number): any;
+  dynamicPanelItemValueChanged(question: IQuestion, options: any): any;
+  dragAndDropAllow(options: any): boolean;
 }
 export interface ISurveyImpl {
   geSurveyData(): ISurveyData;
@@ -97,16 +113,18 @@ export interface ISurveyImpl {
   getTextProcessor(): ITextProcessor;
 }
 export interface IConditionRunner {
-  runCondition(values: HashTable<any>, properties: HashTable<any>);
+  runCondition(values: HashTable<any>, properties: HashTable<any>): any;
 }
 export interface ISurveyElement {
   name: string;
   isVisible: boolean;
-  setSurveyImpl(value: ISurveyImpl);
-  onSurveyLoad();
+  isPage: boolean;
+  setSurveyImpl(value: ISurveyImpl): any;
+  onSurveyLoad(): any;
+  onFirstRendering(): any;
   getType(): string;
   setVisibleIndex(value: number): number;
-  locStrsChanged();
+  locStrsChanged(): any;
 }
 export interface IElement extends IConditionRunner, ISurveyElement {
   visible: boolean;
@@ -116,29 +134,29 @@ export interface IElement extends IConditionRunner, ISurveyElement {
   rightIndent: number;
   startWithNewLine: boolean;
   isPanel: boolean;
+  getPanel(): IPanel;
   removeElement(el: IElement): boolean;
-  onReadOnlyChanged();
-  onAnyValueChanged(name: string);
-  updateCustomWidgets();
-  clearIncorrectValues();
+  onAnyValueChanged(name: string): any;
+  updateCustomWidgets(): any;
+  clearIncorrectValues(): any;
 }
 
 export interface IQuestion extends IElement {
   hasTitle: boolean;
   isEmpty(): boolean;
-  onSurveyValueChanged(newValue: any);
+  onSurveyValueChanged(newValue: any): any;
   supportGoNextPageAutomatic(): boolean;
-  clearUnusedValues();
+  clearUnusedValues(): any;
   getDisplayValue(keysAsText: boolean): any;
   getValueName(): string;
-  clearValue();
-  clearValueIfInvisible();
+  clearValue(): any;
+  clearValueIfInvisible(): any;
   isAnswerCorrect(): boolean;
-  updateValueWithDefaults();
+  updateValueWithDefaults(): any;
   value: any;
 }
 export interface IParentElement {
-  addElement(element: IElement, index: number);
+  addElement(element: IElement, index: number): any;
   removeElement(element: IElement): boolean;
   isReadOnly: boolean;
 }
@@ -146,6 +164,7 @@ export interface IParentElement {
 export interface IPanel extends ISurveyElement, IParentElement {
   getQuestionTitleLocation(): string;
   parent: IPanel;
+  elementWidthChanged(el: IElement): any;
 }
 export interface IPage extends IPanel, IConditionRunner {}
 /**
@@ -153,6 +172,8 @@ export interface IPage extends IPanel, IConditionRunner {}
  */
 export class Base {
   public static commentPrefix: string = "-Comment";
+  public static createItemValue: (item: any) => any;
+  public static itemValueLocStrChanged: (arr: Array<any>) => void;
   /**
    * A static methods that returns true if a value underfined, null, empty string or empty array.
    * @param value
@@ -164,10 +185,14 @@ export class Base {
     return value !== "" && this.isValueEmpty(value);
   }
 
-  private propertyHash = {};
-  private localizableStrings = {};
-  private arraysInfo = {};
-  private onPropChangeFunctions = [];
+  private propertyHash: { [index: string]: any } = {};
+  private localizableStrings: { [index: string]: LocalizableString };
+  private arraysInfo: { [index: string]: any };
+  private onPropChangeFunctions: Array<{
+    name: string;
+    func: (...args: any[]) => void;
+    key: string;
+  }>;
   protected isLoadingFromJsonValue: boolean = false;
   public onPropertyChanged: Event<
     (sender: Base, options: any) => any,
@@ -217,16 +242,21 @@ export class Base {
     return new JsonObject().toJsonObject(this);
   }
   public locStrsChanged() {
-    for (let key in this.arraysInfo) {
-      let item = this.arraysInfo[key];
-      if (item && item.isItemValues) {
-        var arr = this.getPropertyValue(key);
-        if (arr) ItemValue.locStrsChanged(arr);
+    if (!!this.arraysInfo) {
+      for (let key in this.arraysInfo) {
+        let item = this.arraysInfo[key];
+        if (item && item.isItemValues) {
+          var arr = this.getPropertyValue(key);
+          if (arr && !!Base.itemValueLocStrChanged)
+            Base.itemValueLocStrChanged(arr);
+        }
       }
     }
-    for (let key in this.localizableStrings) {
-      let item = this.getLocalizableString(key);
-      if (item) item.strChanged();
+    if (!!this.localizableStrings) {
+      for (let key in this.localizableStrings) {
+        let item = this.getLocalizableString(key);
+        if (item) item.strChanged();
+      }
     }
   }
   /**
@@ -248,8 +278,8 @@ export class Base {
       this.setPropertyValueCoreHandler(propertiesHash, name, val);
     else propertiesHash[name] = val;
   }
-  public iteratePropertiesHash(func: (hash, key) => void) {
-    var keys = [];
+  public iteratePropertiesHash(func: (hash: any, key: any) => void) {
+    var keys: any[] = [];
     for (var key in this.propertyHash) {
       keys.push(key);
     }
@@ -286,6 +316,7 @@ export class Base {
       oldValue: oldValue,
       newValue: newValue
     });
+    if (!this.onPropChangeFunctions) return;
     for (var i = 0; i < this.onPropChangeFunctions.length; i++) {
       if (this.onPropChangeFunctions[i].name == name)
         this.onPropChangeFunctions[i].func(newValue);
@@ -302,6 +333,9 @@ export class Base {
     func: any,
     key: string = null
   ) {
+    if (!this.onPropChangeFunctions) {
+      this.onPropChangeFunctions = [];
+    }
     if (key) {
       for (var i = 0; i < this.onPropChangeFunctions.length; i++) {
         var item = this.onPropChangeFunctions[i];
@@ -337,6 +371,7 @@ export class Base {
     name: string,
     key: string = null
   ) {
+    if (!this.onPropChangeFunctions) return;
     for (var i = 0; i < this.onPropChangeFunctions.length; i++) {
       var item = this.onPropChangeFunctions[i];
       if (item.name == name && item.key == key) {
@@ -360,7 +395,7 @@ export class Base {
   }
   public createCustomLocalizableObj(name: string) {
     var locStr = this.getLocalizableString(name);
-    if (locStr || !this["getLocale"]) return;
+    if (locStr || !(<any>this).getLocale) return;
     this.createLocalizableString(name, <ILocalizableOwner>(<any>this));
   }
   protected createLocalizableString(
@@ -369,11 +404,14 @@ export class Base {
     useMarkDown: boolean = false
   ): LocalizableString {
     var locStr = new LocalizableString(owner, useMarkDown);
+    if (!this.localizableStrings) {
+      this.localizableStrings = {};
+    }
     this.localizableStrings[name] = locStr;
     return locStr;
   }
   public getLocalizableString(name: string): LocalizableString {
-    return this.localizableStrings[name];
+    return !!this.localizableStrings ? this.localizableStrings[name] : null;
   }
   public getLocalizableStringText(
     name: string,
@@ -394,14 +432,14 @@ export class Base {
   }
   protected createItemValues(name: string): Array<any> {
     var self = this;
-    var result = this.createNewArray(name, function(item) {
+    var result = this.createNewArray(name, function(item: any) {
       item.locOwner = self;
     });
     this.arraysInfo[name].isItemValues = true;
     return result;
   }
-  private notifyArrayChanged(ar: Array<any>) {
-    !!ar["onArrayChanged"] && ar["onArrayChanged"]();
+  private notifyArrayChanged(ar: any) {
+    !!ar.onArrayChanged && ar.onArrayChanged();
   }
   protected createNewArray(
     name: string,
@@ -410,11 +448,14 @@ export class Base {
   ): Array<any> {
     var newArray = new Array<any>();
     this.setPropertyValueCore(this.propertyHash, name, newArray);
+    if (!this.arraysInfo) {
+      this.arraysInfo = {};
+    }
     this.arraysInfo[name] = { onPush: onPush, isItemValues: false };
     var self = this;
     newArray.push = function(value): number {
       var result = Object.getPrototypeOf(newArray).push.call(newArray, value);
-      if (onPush) onPush(value);
+      if (onPush) onPush(value, newArray.length - 1);
       self.propertyValueChanged(name, newArray, newArray);
       self.notifyArrayChanged(newArray);
       return result;
@@ -473,12 +514,9 @@ export class Base {
     for (var i = 0; i < dest.length; i++) {
       var item = dest[i];
       if (isItemValues) {
-        if (typeof dest[i].getType === "function") {
-          item = new ItemValue(null, undefined, dest[i].getType());
-        } else {
-          item = new ItemValue(null);
+        if (!!Base.createItemValue) {
+          item = Base.createItemValue(item);
         }
-        item.setData(dest[i]);
       }
       Object.getPrototypeOf(src).push.call(src, item);
       //src["origionalPush"].apply(src, [item]);
@@ -570,7 +608,10 @@ export class SurveyElement extends Base implements ISurveyElement {
    * Returns true if the question in design mode right now.
    */
   public get isDesignMode(): boolean {
-    return this.survey && this.survey.isDesignMode;
+    return !!this.survey && this.survey.isDesignMode;
+  }
+  public get areInvisibleElementsShowing(): boolean {
+    return !!this.survey && this.survey.areInvisibleElementsShowing;
   }
   public get isVisible(): boolean {
     return true;
@@ -583,8 +624,13 @@ export class SurveyElement extends Base implements ISurveyElement {
     return this.getPropertyValue("name", "");
   }
   public set name(val: string) {
+    var oldValue = this.name;
     this.setPropertyValue("name", val);
+    if (!this.isLoadingFromJson && !!oldValue) {
+      this.onNameChanged(oldValue);
+    }
   }
+  protected onNameChanged(oldValue: string) {}
   /**
    * The list of errors. It is created by callig hasErrors functions
    * @see hasErrors
@@ -607,6 +653,7 @@ export class SurveyElement extends Base implements ISurveyElement {
   public updateCustomWidgets() {}
 
   public onSurveyLoad() {}
+  public onFirstRendering() {}
   endLoadingFromJson() {
     super.endLoadingFromJson();
     if (!this.survey) {
@@ -615,6 +662,9 @@ export class SurveyElement extends Base implements ISurveyElement {
   }
   public setVisibleIndex(index: number): number {
     return 0;
+  }
+  public get isPage() {
+    return false;
   }
   protected get textProcessor(): ITextProcessor {
     return this.textProcessorValue;

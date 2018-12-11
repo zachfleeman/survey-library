@@ -22,7 +22,7 @@ export interface IMultipleTextData extends ILocalizableOwner, IPanel {
   getTextProcessor(): ITextProcessor;
   getAllValues(): any;
   getMultipleTextValue(name: string): any;
-  setMultipleTextValue(name: string, value: any);
+  setMultipleTextValue(name: string, value: any): any;
   getIsRequiredText(): string;
 }
 
@@ -31,6 +31,7 @@ export class MultipleTextItemModel extends Base
   private editorValue: QuestionTextModel;
   private data: IMultipleTextData;
 
+  _valueChangedCallback: (newValue: any) => void;
   valueChangedCallback: (newValue: any) => void;
   validators: Array<SurveyValidator> = new Array<SurveyValidator>();
 
@@ -65,6 +66,10 @@ export class MultipleTextItemModel extends Base
   }
   protected createEditor(name: string): QuestionTextModel {
     return new QuestionTextModel(name);
+  }
+  public locStrsChanged() {
+    super.locStrsChanged();
+    this.editor.locStrsChanged();
   }
   setData(data: IMultipleTextData) {
     this.data = data;
@@ -155,6 +160,7 @@ export class MultipleTextItemModel extends Base
     return Helpers.isValueEmpty(this.value);
   }
   public onValueChanged(newValue: any) {
+    if (this._valueChangedCallback) this._valueChangedCallback(newValue);
     if (this.valueChangedCallback) this.valueChangedCallback(newValue);
   }
   //ISurveyImpl
@@ -218,7 +224,7 @@ export class QuestionMultipleTextModel extends Question
   constructor(public name: string) {
     super(name);
     var self = this;
-    this.items = this.createNewArray("items", function(item) {
+    this.items = this.createNewArray("items", function(item: any) {
       item.setData(self);
     });
     this.registerFunctionOnPropertyValueChanged("items", function() {
@@ -245,10 +251,6 @@ export class QuestionMultipleTextModel extends Question
     this.callEditorFunction("onSurveyLoad");
     this.fireCallback(this.colCountChangedCallback);
   }
-  onReadOnlyChanged() {
-    super.onReadOnlyChanged();
-    this.callEditorFunction("onReadOnlyChanged");
-  }
   onSurveyValueChanged(newValue: any) {
     super.onSurveyValueChanged(newValue);
     for (var i = 0; i < this.items.length; i++) {
@@ -259,8 +261,8 @@ export class QuestionMultipleTextModel extends Question
   private callEditorFunction(funcName: string) {
     for (var i = 0; i < this.items.length; i++) {
       var item = this.items[i];
-      if (item.editor && item.editor[funcName]) {
-        item.editor[funcName]();
+      if (item.editor && (<any>item).editor[funcName]) {
+        (<any>item).editor[funcName]();
       }
     }
   }
@@ -321,7 +323,7 @@ export class QuestionMultipleTextModel extends Question
     return this.getPropertyValue("colCount", 1);
   }
   public set colCount(val: number) {
-    if (val < 1 || val > 4) return;
+    if (val < 1 || val > 5) return;
     this.setPropertyValue("colCount", val);
   }
   /**
@@ -425,6 +427,7 @@ export class QuestionMultipleTextModel extends Question
   getQuestionTitleLocation(): string {
     return "left";
   }
+  elementWidthChanged(el: IElement) {}
 }
 
 JsonObject.metaData.addClass(
@@ -471,7 +474,7 @@ JsonObject.metaData.addClass(
   [
     { name: "!items:textitems", className: "multipletextitem" },
     { name: "itemSize:number", default: 25 },
-    { name: "colCount:number", default: 1, choices: [1, 2, 3, 4] }
+    { name: "colCount:number", default: 1, choices: [1, 2, 3, 4, 5] }
   ],
   function() {
     return new QuestionMultipleTextModel("");

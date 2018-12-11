@@ -35,7 +35,7 @@ export var defaultBootstrapCss = {
   },
   panel: {
     title: "sv_p_title",
-    description: "small",
+    description: "small sv_p_description",
     container: "sv_p_container"
   },
   error: {
@@ -68,7 +68,8 @@ export var defaultBootstrapCss = {
     root: "table sv_q_matrix",
     label: "sv_q_m_label",
     cellText: "sv_q_m_cell_text",
-    cellTextSelected: "sv_q_m_cell_selected bg-primary"
+    cellTextSelected: "sv_q_m_cell_selected bg-primary",
+    cellLabel: "sv_q_m_cell_label"
   },
   matrixdropdown: { root: "table" },
   matrixdynamic: {
@@ -146,4 +147,4 @@ export var defaultBootstrapCss = {
     }
   }
 };
-surveyCss["bootstrap"] = defaultBootstrapCss;
+(<any>surveyCss)["bootstrap"] = defaultBootstrapCss;

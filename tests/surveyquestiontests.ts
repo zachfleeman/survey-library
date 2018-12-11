@@ -23,6 +23,7 @@ import { QuestionBooleanModel } from "../src/question_boolean";
 import { JsonObject } from "../src/jsonobject";
 import { ItemValue } from "../src/itemvalue";
 import { QuestionMatrixDropdownModel } from "../src/question_matrixdropdown";
+import { AssertionError } from "assert";
 
 export default QUnit.module("Survey_Questions");
 
@@ -138,12 +139,14 @@ QUnit.test("Comment and other could not be set together", function(assert) {
   assert.equal(questionDropDown.hasOther, true, "After set other to true");
 });
 QUnit.test("set choices from another question", function(assert) {
+  JsonObject.metaData.addProperty("itemvalue", "price");
   var q1 = new QuestionSelectBase("q1");
   q1.choices = [{ value: 1, text: "One", price: 4 }, "Two", "Three"];
   var q2 = new QuestionSelectBase("q2");
   q2.choices = q1.choices;
   assert.equal(q2.choices.length, 3, "all three were copied");
   assert.equal(q2.choices[0]["price"], 4, "additional data is copied");
+  JsonObject.metaData.removeProperty("itemvalue", "price");
 });
 QUnit.test("visibleChoices changes on setting others to true/false", function(
   assert
@@ -204,6 +207,29 @@ QUnit.test(
     );
   }
 );
+QUnit.test("displayValue observable/reactive property", function(assert) {
+  var survey = new SurveyModel();
+  var page = survey.addNewPage("p");
+  var question = new QuestionSelectBase("dropdownQuestion");
+  question.choices = [
+    { value: 1, text: "Value 1" },
+    { value: 2, text: "Value 2" }
+  ];
+  page.addElement(question);
+  assert.equal(question.getPropertyValue("displayValue"), "", "Empty value");
+  question.value = 1;
+  assert.equal(
+    question.getPropertyValue("displayValue"),
+    "Value 1",
+    "value is 1"
+  );
+  survey.setValue("dropdownQuestion", 2);
+  assert.equal(
+    question.getPropertyValue("displayValue"),
+    "Value 2",
+    "value is 2"
+  );
+});
 QUnit.test("displayValue function for rating question, issue #1094", function(
   assert
 ) {
@@ -786,9 +812,13 @@ QUnit.test("SelectBase visibleChoices order", function(assert) {
 QUnit.test("Question callbacks test", function(assert) {
   var question = new QuestionTextModel("textQuestion");
   var valueChanged = 0;
+  var _valueChanged = 0;
   var commentChanged = 0;
   var visibleChanged = 0;
   var visibleIndexChanged = 0;
+  question._valueChangedCallback = function() {
+    _valueChanged++;
+  };
   question.valueChangedCallback = function() {
     valueChanged++;
   };
@@ -805,10 +835,15 @@ QUnit.test("Question callbacks test", function(assert) {
   question.comment = "comment";
   question.visible = false;
   question.setVisibleIndex(5);
-  assert.equal(valueChanged, 1, "value changed on time");
-  assert.equal(commentChanged, 1, "comment changed on time");
-  assert.equal(visibleChanged, 1, "visibiblity changed on time");
-  assert.equal(visibleIndexChanged, 1, "visibleIndex changed on time");
+  assert.equal(
+    _valueChanged,
+    1,
+    "value changed aux callbacl is called one time"
+  );
+  assert.equal(valueChanged, 1, "value changed one time");
+  assert.equal(commentChanged, 1, "comment changed one time");
+  assert.equal(visibleChanged, 1, "visibiblity changed one time");
+  assert.equal(visibleIndexChanged, 1, "visibleIndex changed one time");
 });
 QUnit.test("Init SelectBase with comment comment", function(assert) {
   var survey = new SurveyModel();
@@ -1318,6 +1353,25 @@ QUnit.test("questionselectbase.choicesVisibleIf", function(assert) {
   assert.equal(qBestCar.visibleChoices.length, 4, "there is no filter");
 });
 
+QUnit.test("questionselectbase.choicesEnableIf", function(assert) {
+  var survey = new SurveyModel();
+  var page = survey.addNewPage("p1");
+  var qCars = new QuestionCheckboxModel("cars");
+  qCars.choices = ["Audi", "BMW", "Mercedes", "Volkswagen"];
+  page.addElement(qCars);
+  var qBestCar = new QuestionRadiogroupModel("bestCar");
+  qBestCar.choices = ["Audi", "BMW", "Mercedes", "Volkswagen"];
+  qBestCar.choicesEnableIf = "{cars} contains {item}";
+  page.addElement(qBestCar);
+  assert.equal(qBestCar.enabledChoices.length, 0, "cars are disabled");
+  qCars.value = ["BMW"];
+  assert.equal(qBestCar.enabledChoices.length, 1, "BMW is enabled");
+  qCars.value = ["Audi", "BMW", "Mercedes"];
+  assert.equal(qBestCar.enabledChoices.length, 3, "3 cars are enabled");
+  qBestCar.choicesEnableIf = "";
+  assert.equal(qBestCar.enabledChoices.length, 4, "there is no filter");
+});
+
 QUnit.test("questionselectbase.choicesVisibleIf, support {choice}", function(
   assert
 ) {
@@ -1485,6 +1539,23 @@ QUnit.test(
   }
 );
 QUnit.test(
+  "radiogroup.choicesEnableIf, clear value on making the value disable, survey.clearValueOnDisableItems",
+  function(assert) {
+    var survey = new SurveyModel();
+    survey.clearValueOnDisableItems = true;
+    var page = survey.addNewPage("p1");
+    var qBestCar = new QuestionRadiogroupModel("bestCar");
+    qBestCar.choices = ["Audi", "BMW", "Mercedes", "Volkswagen"];
+    qBestCar.choicesEnableIf = "{cars} contains {item}";
+    page.addElement(qBestCar);
+    survey.setValue("cars", ["BMW", "Audi"]);
+    qBestCar.value = "Audi";
+    assert.equal(qBestCar.value, "Audi", "Audi is selected");
+    survey.setValue("cars", ["BMW"]);
+    assert.equal(qBestCar.isEmpty(), true, "Audi is cleared");
+  }
+);
+QUnit.test(
   "checkbox.choicesVisibleIf, clear value on making the value invisible, bug #1093",
   function(assert) {
     var survey = new SurveyModel();
@@ -1492,6 +1563,25 @@ QUnit.test(
     var qBestCar = new QuestionCheckboxModel("bestCar");
     qBestCar.choices = ["Audi", "BMW", "Mercedes", "Volkswagen"];
     qBestCar.choicesVisibleIf = "{cars} contains {item}";
+    page.addElement(qBestCar);
+    survey.setValue("cars", ["BMW", "Audi", "Mercedes"]);
+    qBestCar.value = ["BMW", "Audi"];
+    assert.deepEqual(qBestCar.value, ["BMW", "Audi"], "Audi is selected");
+    survey.setValue("cars", ["BMW"]);
+    assert.deepEqual(qBestCar.value, ["BMW"], "Audi is removed");
+    survey.setValue("cars", ["Mercedes"]);
+    assert.deepEqual(qBestCar.isEmpty(), true, "All checks are removed");
+  }
+);
+QUnit.test(
+  "checkbox.choicesEnableIf, clear value on making the value disable, survey.clearValueOnDisableItems",
+  function(assert) {
+    var survey = new SurveyModel();
+    survey.clearValueOnDisableItems = true;
+    var page = survey.addNewPage("p1");
+    var qBestCar = new QuestionCheckboxModel("bestCar");
+    qBestCar.choices = ["Audi", "BMW", "Mercedes", "Volkswagen"];
+    qBestCar.choicesEnableIf = "{cars} contains {item}";
     page.addElement(qBestCar);
     survey.setValue("cars", ["BMW", "Audi", "Mercedes"]);
     qBestCar.value = ["BMW", "Audi"];
@@ -1528,6 +1618,33 @@ QUnit.test("itemValue.visibleIf", function(assert) {
   assert.equal(q.visibleChoices.length, 1, "phone is set");
   survey.setValue("email", "2");
   assert.equal(q.visibleChoices.length, 2, "phone and e-mail are set");
+});
+
+QUnit.test("itemValue.enableIf", function(assert) {
+  var json = {
+    elements: [
+      {
+        type: "checkbox",
+        name: "q",
+        choices: [
+          { value: "contactbyphone", enableIf: "{phone} notempty" },
+          { value: "contactbyemail", enableIf: "{email} notempty" }
+        ]
+      }
+    ]
+  };
+  var survey = new SurveyModel(json);
+  var q = <QuestionCheckboxModel>survey.getQuestionByName("q");
+  assert.equal(
+    q.choices[0].enableIf,
+    "{phone} notempty",
+    "itemValue.visibleIf loaded correctly"
+  );
+  assert.equal(q.enabledChoices.length, 0, "Nothing is set");
+  survey.setValue("phone", "1");
+  assert.equal(q.enabledChoices.length, 1, "phone is set");
+  survey.setValue("email", "2");
+  assert.equal(q.enabledChoices.length, 2, "phone and e-mail are set");
 });
 
 QUnit.test(
@@ -1801,3 +1918,70 @@ QUnit.test("QuestionHtml + Survey.onProcessHtml event, bug#1294", function(
   question.html = "text";
   assert.equal(question.locHtml.renderedHtml, "text-add-", "process html");
 });
+
+QUnit.test("question.paddingLeft and question.paddingRight", function(assert) {
+  var survey = new SurveyModel({
+    elements: [{ type: "dropdown", name: "q1" }]
+  });
+  var question = <Question>survey.getQuestionByName("q1");
+  assert.equal(question.paddingLeft, "", "left is empty");
+  assert.equal(question.paddingRight, "", "right is empty");
+  question.indent = 1;
+  question.rightIndent = 2;
+  assert.equal(question.paddingLeft, "20px", "left is not empty");
+  assert.equal(question.paddingRight, "40px", "right is not empty");
+});
+
+QUnit.test(
+  "selectbase question item.visibleIf and survey.data on set, bug#1394, https://surveyjs.answerdesk.io/ticket/details/T1228",
+  function(assert) {
+    var survey = new SurveyModel({
+      elements: [
+        {
+          type: "matrix",
+          name: "qid261",
+          columns: ["0", "1"],
+          rows: [
+            {
+              value: "oid11772",
+              text: "AES",
+              visibleIf: "{qid260} contains 'oid11772'"
+            },
+            {
+              value: "oid13403",
+              text: "RC6",
+              visibleIf: "{qid260} contains 'oid13403'"
+            },
+            {
+              value: "oid13404",
+              text: "SEED",
+              visibleIf: "{qid260} contains 'oid13404'"
+            }
+          ]
+        }
+      ]
+    });
+    survey.data = {
+      qid260: ["oid11772", "oid13404"],
+      qid261: { oid11772: "1", oid13404: "1" }
+    };
+
+    var question = <QuestionMatrixModel>survey.getQuestionByName("qid261");
+    assert.deepEqual(
+      question.value,
+      { oid11772: "1", oid13404: "1" },
+      "value set correctly"
+    );
+    assert.equal(question.visibleRows.length, 2, "Two rows are visible");
+    assert.equal(
+      question.visibleRows[0].value,
+      "1",
+      "The first row value is set"
+    );
+    assert.equal(
+      question.visibleRows[1].value,
+      "1",
+      "The second row value is set"
+    );
+  }
+);

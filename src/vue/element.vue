@@ -2,9 +2,8 @@
     <div :class="getQuestionClass(element)">
         <div v-if="element.hasTitleOnLeftTop" :class="element.hasTitleOnLeft ? 'title-left' : ''">
             <h5 v-if="element.hasTitle" :class="element.cssClasses.title"><survey-string :locString="element.locTitle"/></h5>
-            <div v-if="element.hasDescription" :class="element.cssClasses.description"><survey-string :locString="element.locDescription"/></div>
+            <div v-if="!element.locDescription.isEmpty" :class="element.cssClasses.description"><survey-string :locString="element.locDescription"/></div>
         </div>
-
         <div :class="element.hasTitleOnLeft ? 'content-left' : ''">
             <survey-errors v-if="hasErrorsOnTop" :question="element"/>
             <component :is="getWidgetComponentName(element)" :question="element" :css="css"/>
@@ -14,7 +13,7 @@
             </div>
             <survey-errors v-if="hasErrorsOnBottom" :question="element"/>
             <h5 v-if="element.hasTitleOnBottom" :class="element.cssClasses.title"><survey-string :locString="element.locTitle"/></h5>
-            <div v-if="element.hasDescription" :class="element.cssClasses.description" v-show="element.hasTitleOnBottom"><survey-string :locString="element.locDescription"/></div>
+            <div v-if="!element.locDescription.isEmpty" v-show="element.hasTitleOnBottom"><survey-string :locString="element.locDescription"/></div>
         </div>
     </div>
 </template>
@@ -25,7 +24,6 @@ import { Component, Prop } from "vue-property-decorator";
 import { SurveyModel } from "../survey";
 import { IElement, IQuestion } from "../base";
 import { Question } from "../question";
-import { helpers } from "./helpers";
 
 @Component
 export class SurveyElementVue extends Vue {
@@ -41,9 +39,9 @@ export class SurveyElementVue extends Vue {
   }
   getQuestionClass(element: Question) {
     if (!!element.errors && element.errors.length > 0) {
-        return this.css.question.hasError
+      return this.css.question.hasError;
     }
-    return '';
+    return "";
   }
   get hasErrorsOnTop() {
     return !this.element.isPanel && this.survey.questionErrorLocation === "top";

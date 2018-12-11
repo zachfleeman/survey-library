@@ -1,18 +1,19 @@
 import * as ko from "knockout";
-import { JsonObject } from "../jsonobject";
-import { SurveyElement } from "../base";
-import { ElementFactory } from "../questionfactory";
+import { Base } from "../base";
 
 export class ImplementorBase {
-  constructor(public element: SurveyElement) {
+  private static doIterateProperties(hash: any, key: any): any {
+    var val = hash[key];
+    if (Array.isArray(val)) {
+      hash[key] = ko.observableArray(val);
+      (<any>val)["onArrayChanged"] = () => hash[key].notifySubscribers();
+    } else {
+      hash[key] = ko.observable(val);
+    }
+  }
+  constructor(public element: Base) {
     element.iteratePropertiesHash((hash, key) => {
-      var val = hash[key];
-      if (Array.isArray(val)) {
-        hash[key] = ko.observableArray(val);
-        val["onArrayChanged"] = () => hash[key].notifySubscribers();
-      } else {
-        hash[key] = ko.observable(val);
-      }
+      ImplementorBase.doIterateProperties(hash, key);
     });
     element.getPropertyValueCoreHandler = (hash, key) => {
       if (hash[key] === undefined) {

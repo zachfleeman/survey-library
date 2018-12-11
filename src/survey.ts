@@ -13,7 +13,8 @@ import {
   IConditionRunner,
   IPage,
   SurveyError,
-  Event
+  Event,
+  ISurveyElement
 } from "./base";
 import { ISurveyTriggerOwner, SurveyTrigger } from "./trigger";
 import { PageModel } from "./page";
@@ -28,6 +29,7 @@ import { StylesManager } from "./stylesmanager";
 import { SurveyTimer } from "./surveytimer";
 import { Question } from "./question";
 import { ItemValue } from "./itemvalue";
+import { PanelModelBase } from "./panel";
 
 /**
  * Survey object contains information about the survey. Pages, Questions, flow logic and etc.
@@ -39,6 +41,7 @@ export class SurveyModel extends Base
     ISurveyImpl,
     ISurveyTriggerOwner,
     ILocalizableOwner {
+  [index: string]: any;
   private static stylesManager = new StylesManager();
   public static platform: string = "unknown";
   public get platformName(): string {
@@ -57,16 +60,18 @@ export class SurveyModel extends Base
 
   private pagesValue: Array<PageModel>;
   private triggersValue: Array<SurveyTrigger>;
-  private currentPageValue: PageModel = null;
+  private get currentPageValue(): PageModel {
+    return this.getPropertyValue("currentPageValue", null);
+  }
+  private set currentPageValue(val: PageModel) {
+    this.setPropertyValue("currentPageValue", val);
+  }
+
   private valuesHash: HashTable<any> = {};
   private variablesHash: HashTable<any> = {};
 
   private localeValue: string = "";
 
-  private isCompleted: boolean = false;
-  private isStartedState: boolean = false;
-  private isCompletedBefore: boolean = false;
-  private isLoading: boolean = false;
   private textPreProcessor: TextPreProcessor;
   private completedStateValue: string = "";
   private completedStateTextValue: string = "";
@@ -647,6 +652,22 @@ export class SurveyModel extends Base
     any
   > = new Event<(sender: SurveyModel, options: any) => any, any>();
   /**
+   * Use this event to control drag&drop operations during design mode.
+   * <br/> sender the survey object that fires the event.
+   * <br/> options.allow set it to false to disable dragging.
+   * <br/> options.target a target element that is dragging.
+   * <br/> options.source a source element. It can be null, if it is a new element, dragging from toolbox.
+   * <br/> options.parent a page or panel where target element is dragging.
+   * <br/> options.insertBefore an element before the target element is dragging. It can be null if parent container (page or panel) is empty or dragging an element under the last element of the container.
+   * <br/> options.insertAfter an element after the target element is dragging. It can be null if parent container (page or panel) is empty or dragging element to the top of the parent container.
+   * @see setDesignMode
+   * @see isDesignMode
+   */
+  public onDragDropAllow: Event<
+    (sender: SurveyModel, options: any) => any,
+    any
+  > = new Event<(sender: SurveyModel, options: any) => any, any>();
+  /**
    * The list of errors on loading survey json. If the list is empty after loading a json then the json is correct and there is no errors in it.
    * @see JsonError
    */
@@ -671,13 +692,18 @@ export class SurveyModel extends Base
     ) {
       self.getProcessedTextValue(textValue);
     };
-    this.pagesValue = this.createNewArray("pages", function(value) {
+    this.pagesValue = this.createNewArray("pages", function(value: any) {
       self.doOnPageAdded(value);
     });
-    this.triggersValue = this.createNewArray("triggers", function(value) {
+    this.triggersValue = this.createNewArray("triggers", function(value: any) {
       value.setOwner(self);
     });
-
+    this.registerFunctionOnPropertyValueChanged(
+      "questionTitleTemplate",
+      function() {
+        self.questionTitleTemplateCache = undefined;
+      }
+    );
     this.registerFunctionOnPropertyValueChanged(
       "firstPageIsStarted",
       function() {
@@ -961,11 +987,14 @@ export class SurveyModel extends Base
     return this.localeValue;
   }
   public set locale(value: string) {
+    this.questionTitleTemplateCache = undefined;
     surveyLocalization.currentLocale = value;
     this.localeValue = surveyLocalization.currentLocale;
     this.setPropertyValue("locale", this.localeValue);
     this.locStrsChanged();
+    this.onLocaleChanged();
   }
+  protected onLocaleChanged() {}
   //ILocalizableOwner
   getLocale() {
     return this.locale;
@@ -1121,13 +1150,17 @@ export class SurveyModel extends Base
   public set questionTitleTemplate(value: string) {
     this.setLocalizableStringText("questionTitleTemplate", value);
   }
+  private questionTitleTemplateCache: string = undefined;
   /**
    * Returns the question title template
    * @see questionTitleTemplate
    * @see QuestionModel.title
    */
   public getQuestionTitleTemplate(): string {
-    return this.locQuestionTitleTemplate.textOrHtml;
+    if (this.questionTitleTemplateCache === undefined) {
+      this.questionTitleTemplateCache = this.locQuestionTitleTemplate.textOrHtml;
+    }
+    return this.questionTitleTemplateCache;
   }
   get locQuestionTitleTemplate(): LocalizableString {
     return this.getLocalizableString("questionTitleTemplate");
@@ -1213,9 +1246,6 @@ export class SurveyModel extends Base
     if (value == this.mode) return;
     if (value != "edit" && value != "display") return;
     this.setPropertyValue("mode", value);
-    for (var i = 0; i < this.pages.length; i++) {
-      this.pages[i].onReadOnlyChanged();
-    }
   }
   /**
    * An object that stores the survey results/data. You may set it directly as { 'question name': questionValue, ... }
@@ -1223,20 +1253,76 @@ export class SurveyModel extends Base
    * @see getValue
    */
   public get data(): any {
-    var result = {};
+    var result: { [index: string]: any } = {};
     for (var key in this.valuesHash) {
-      result[key] = this.valuesHash[key];
+      result[key] = this.getDataValueCore(this.valuesHash, key);
     }
     return result;
   }
   getAllValues(): any {
     return this.data;
   }
+  private getQuestionPlainData(question: Question) {
+    var result: Array<any> = [];
+    var value = question.value;
+    var displayValue = question.displayValue;
+    if (question.getType() === "checkbox") {
+      displayValue = (displayValue || "")
+        .split(",")
+        .map((v: string) => v.trim());
+    }
+    var valueKeys = Object.keys(question.value);
+    var displayValueKeys = Object.keys(question.displayValue);
+    var isArray = Array.isArray(value);
+    valueKeys.forEach((key, index) => {
+      result.push({
+        name: key,
+        title: isArray ? "" : displayValueKeys[index],
+        value: value[key],
+        displayValue: displayValue[displayValueKeys[index]],
+        getString: (val: any) =>
+          typeof val === "object" ? JSON.stringify(val) : val,
+        isNode: false
+      });
+    });
+    return result;
+  }
+  /**
+   * Returns survey result data as an array of plain objects: with question title, name, value and displayValue.
+   * For complex questions (like matrix, etc.) isNode flag is set to true and data contains array of nested objects (rows)
+   * set options.includeEmpty to false if you want to skip empty answers
+   */
+  public getPlainData(
+    options: { includeEmpty?: boolean } = { includeEmpty: true }
+  ) {
+    var result: Array<any> = [];
+    var data = this.data;
+    this.getAllQuestions().forEach(question => {
+      if (options.includeEmpty || data[question.name] !== undefined) {
+        var resultItem: any = {
+          name: question.name,
+          title: (<Question>question).title,
+          value: question.value,
+          displayValue: (<Question>question).displayValue,
+          isNode:
+            typeof question.value === "object" || Array.isArray(question.value),
+          getString: (val: any) =>
+            typeof val === "object" ? JSON.stringify(val) : val
+        };
+        result.push(resultItem);
+        if (resultItem.isNode) {
+          resultItem.data = this.getQuestionPlainData(<Question>question);
+        }
+      }
+    });
+    return result;
+  }
   private conditionVersion = 0;
   getFilteredValues(): any {
-    var values = {};
+    var values: { [index: string]: any } = {};
     for (var key in this.variablesHash) values[key] = this.variablesHash[key];
-    for (var key in this.valuesHash) values[key] = this.valuesHash[key];
+    for (var key in this.valuesHash)
+      values[key] = this.getDataValueCore(this.valuesHash, key);
     values["conditionVersion"] = ++this.conditionVersion;
     return values;
   }
@@ -1256,6 +1342,9 @@ export class SurveyModel extends Base
     this.notifyElementsOnAnyValueOrVariableChanged("");
     this.runConditions();
   }
+  public getDataValueCore(valuesHash: any, key: string) {
+    return valuesHash[key];
+  }
   public setDataValueCore(valuesHash: any, key: string, value: any) {
     valuesHash[key] = value;
   }
@@ -1267,10 +1356,10 @@ export class SurveyModel extends Base
    * @see data
    */
   public get comments(): any {
-    var result = {};
+    var result: { [index: string]: any } = {};
     for (var key in this.valuesHash) {
       if (key.indexOf(this.commentPrefix) > 0) {
-        result[key] = this.valuesHash[key];
+        result[key] = this.getDataValueCore(this.valuesHash, key);
       }
     }
     return result;
@@ -1351,8 +1440,11 @@ export class SurveyModel extends Base
     if (newPage == this.currentPageValue) return;
     var oldValue = this.currentPageValue;
     if (!this.currentPageChanging(newPage, oldValue)) return;
+    if (!!newPage) {
+      newPage.onFirstRendering();
+    }
     this.currentPageValue = newPage;
-    if (newPage) {
+    if (!!newPage) {
       newPage.updateCustomWidgets();
       newPage.setWasShown(true);
     }
@@ -1429,6 +1521,31 @@ export class SurveyModel extends Base
       return "starting";
     return this.currentPage ? "running" : "empty";
   }
+  private get isCompleted(): boolean {
+    return this.getPropertyValue("isCompleted", false);
+  }
+  private set isCompleted(val: boolean) {
+    this.setPropertyValue("isCompleted", val);
+  }
+  private get isStartedState(): boolean {
+    return this.getPropertyValue("isStartedState", false);
+  }
+  private set isStartedState(val: boolean) {
+    this.setPropertyValue("isStartedState", val);
+  }
+  private get isCompletedBefore(): boolean {
+    return this.getPropertyValue("isCompletedBefore", false);
+  }
+  private set isCompletedBefore(val: boolean) {
+    this.setPropertyValue("isCompletedBefore", val);
+  }
+  private get isLoading(): boolean {
+    return this.getPropertyValue("isLoading", false);
+  }
+  private set isLoading(val: boolean) {
+    this.setPropertyValue("isLoading", val);
+  }
+
   public get completedState(): string {
     return this.completedStateValue;
   }
@@ -1488,7 +1605,7 @@ export class SurveyModel extends Base
   private updateValuesWithDefaults() {
     if (this.isDesignMode || this.isLoading) return;
     for (var i = 0; i < this.pages.length; i++) {
-      var questions = this.pages[0].questions;
+      var questions = this.pages[i].questions;
       for (var j = 0; j < questions.length; j++) {
         questions[j].updateValueWithDefaults();
       }
@@ -1561,6 +1678,32 @@ export class SurveyModel extends Base
   public setDesignMode(value: boolean) {
     this.setPropertyValue("isDesignMode", value);
     this.onIsSinglePageChanged();
+  }
+  /**
+   * Set this property to true, to show all elements in the survey, regardless their visibility. It is false by default.
+   */
+  public get showInvisibleElements(): boolean {
+    return this.getPropertyValue("showInvisibleElements", false);
+  }
+  public set showInvisibleElements(val: boolean) {
+    var visPages = this.visiblePages;
+    this.setPropertyValue("showInvisibleElements", val);
+    this.updateAllElementsVisibility(visPages);
+  }
+  private updateAllElementsVisibility(visPages: Array<PageModel>) {
+    for (var i = 0; i < this.pages.length; i++) {
+      var page = this.pages[i];
+      page.updateElementVisibility();
+      if (visPages.indexOf(page) > -1 != page.isVisible) {
+        this.onPageVisibleChanged.fire(this, {
+          page: page,
+          visible: page.isVisible
+        });
+      }
+    }
+  }
+  public get areInvisibleElementsShowing(): boolean {
+    return this.isDesignMode || this.showInvisibleElements;
   }
   /**
    * Returns true, if a user has already completed the survey on this browser and there is a cookie about it. Survey goes to 'completed' state if the function returns true.
@@ -1666,10 +1809,11 @@ export class SurveyModel extends Base
     this.isStartedState = this.firstPageIsStarted;
     this.pageVisibilityChanged(this.pages[0], !this.firstPageIsStarted);
   }
-  origionalPages = null;
+  origionalPages: any = null;
   protected onIsSinglePageChanged() {
     if (!this.isSinglePage || this.isDesignMode) {
       if (this.origionalPages) {
+        this.questionHashesClear();
         this.pages.splice(0, this.pages.length);
         for (var i = 0; i < this.origionalPages.length; i++) {
           this.pages.push(this.origionalPages[i]);
@@ -1677,11 +1821,16 @@ export class SurveyModel extends Base
       }
       this.origionalPages = null;
     } else {
+      this.questionHashesClear();
       this.origionalPages = this.pages.slice(0, this.pages.length);
       var startIndex = this.firstPageIsStarted ? 1 : 0;
+      super.startLoadingFromJson();
       var singlePage = this.createSinglePage(startIndex);
       var deletedLen = this.pages.length - startIndex;
       this.pages.splice(startIndex, deletedLen, singlePage);
+      super.endLoadingFromJson();
+      singlePage.endLoadingFromJson();
+      this.doElementsOnLoad();
     }
     this.updateVisibleIndexes();
   }
@@ -1781,7 +1930,7 @@ export class SurveyModel extends Base
     if (!this.onServerValidateQuestions) return false;
     var self = this;
     var options = {
-      data: {},
+      data: <{ [index: string]: any }>{},
       errors: {},
       survey: this,
       complete: function() {
@@ -1870,7 +2019,7 @@ export class SurveyModel extends Base
     var index = vPages.indexOf(this.currentPage) + 1;
     return this.getLocString("progressText")["format"](index, vPages.length);
   }
-  protected afterRenderSurvey(htmlElement) {
+  protected afterRenderSurvey(htmlElement: any) {
     this.onAfterRenderSurvey.fire(this, {
       survey: this,
       htmlElement: htmlElement
@@ -1888,20 +2037,20 @@ export class SurveyModel extends Base
       cssClasses: cssClasses
     });
   }
-  afterRenderPage(htmlElement) {
+  afterRenderPage(htmlElement: any) {
     if (this.onAfterRenderPage.isEmpty) return;
     this.onAfterRenderPage.fire(this, {
       page: this.currentPage,
       htmlElement: htmlElement
     });
   }
-  afterRenderQuestion(question: IQuestion, htmlElement) {
+  afterRenderQuestion(question: IQuestion, htmlElement: any) {
     this.onAfterRenderQuestion.fire(this, {
       question: question,
       htmlElement: htmlElement
     });
   }
-  afterRenderPanel(panel: IElement, htmlElement) {
+  afterRenderPanel(panel: IElement, htmlElement: any) {
     this.onAfterRenderPanel.fire(this, {
       panel: panel,
       htmlElement: htmlElement
@@ -1949,6 +2098,11 @@ export class SurveyModel extends Base
   dynamicPanelItemValueChanged(question: IQuestion, options: any) {
     options.question = question;
     this.onDynamicPanelItemValueChanged.fire(this, options);
+  }
+  dragAndDropAllow(options: any): boolean {
+    options.allow = true;
+    this.onDragDropAllow.fire(this, options);
+    return options.allow;
   }
 
   /**
@@ -2041,7 +2195,7 @@ export class SurveyModel extends Base
     files: File[],
     uploadingCallback: (status: string, data: any) => any
   ) {
-    var responses = [];
+    var responses: Array<any> = [];
     files.forEach(file => {
       if (uploadingCallback) uploadingCallback("uploading", file);
       this.createSurveyService().sendFile(
@@ -2107,14 +2261,12 @@ export class SurveyModel extends Base
     name: string,
     caseInsensitive: boolean = false
   ): IQuestion {
-    var questions = this.getAllQuestions();
-    if (caseInsensitive) name = name.toLowerCase();
-    for (var i: number = 0; i < questions.length; i++) {
-      var questionName = questions[i].name;
-      if (caseInsensitive) questionName = questionName.toLowerCase();
-      if (questionName == name) return questions[i];
-    }
-    return null;
+    var hash: HashTable<any> = !!caseInsensitive
+      ? this.questionHashes.namesInsensitive
+      : this.questionHashes.names;
+    var res = hash[name];
+    if (!res) return null;
+    return res[0];
   }
   /**
    * Returns a question by its value name
@@ -2127,14 +2279,19 @@ export class SurveyModel extends Base
     valueName: string,
     caseInsensitive: boolean = false
   ): IQuestion {
-    var questions = this.getAllQuestions();
-    if (caseInsensitive) valueName = valueName.toLowerCase();
-    for (var i: number = 0; i < questions.length; i++) {
-      var questionValueName = questions[i].getValueName();
-      if (caseInsensitive) questionValueName = questionValueName.toLowerCase();
-      if (questionValueName == valueName) return questions[i];
-    }
-    return null;
+    var res = this.getQuestionsByValueNameCore(valueName, caseInsensitive);
+    return !!res ? res[0] : null;
+  }
+  private getQuestionsByValueNameCore(
+    valueName: string,
+    caseInsensitive: boolean = false
+  ): Array<Question> {
+    var hash: HashTable<any> = !!caseInsensitive
+      ? this.questionHashes.valueNamesInsensitive
+      : this.questionHashes.valueNames;
+    var res = hash[valueName];
+    if (!res) return null;
+    return res;
   }
   /**
    * Get a list of questions by their names
@@ -2145,7 +2302,7 @@ export class SurveyModel extends Base
     names: string[],
     caseInsensitive: boolean = false
   ): IQuestion[] {
-    var result = [];
+    var result: IQuestion[] = [];
     if (!names) return result;
     for (var i: number = 0; i < names.length; i++) {
       if (!names[i]) continue;
@@ -2187,7 +2344,7 @@ export class SurveyModel extends Base
    * @param names a list of pages names
    */
   public getPagesByNames(names: string[]): PageModel[] {
-    var result = [];
+    var result: PageModel[] = [];
     if (!names) return result;
     for (var i: number = 0; i < names.length; i++) {
       if (!names[i]) continue;
@@ -2278,22 +2435,21 @@ export class SurveyModel extends Base
   }
   protected notifyQuestionOnValueChanged(valueName: string, newValue: any) {
     if (this.isLoadingFromJson) return;
-    var questions = this.getAllQuestions();
-    var question = null;
-    for (var i: number = 0; i < questions.length; i++) {
-      if (questions[i].getValueName() != valueName) continue;
-      question = questions[i];
-      if (this.checkErrorsMode == "onValueChanged") {
-        question.hasErrors(true);
+    var questions = this.getQuestionsByValueNameCore(valueName);
+    if (!!questions) {
+      for (var i: number = 0; i < questions.length; i++) {
+        var question = questions[i];
+        if (this.checkErrorsMode == "onValueChanged") {
+          question.hasErrors(true);
+        }
+        this.doSurveyValueChanged(question, newValue);
+        this.onValueChanged.fire(this, {
+          name: valueName,
+          question: question,
+          value: newValue
+        });
       }
-      this.doSurveyValueChanged(question, newValue);
-      this.onValueChanged.fire(this, {
-        name: valueName,
-        question: question,
-        value: newValue
-      });
-    }
-    if (!question) {
+    } else {
       this.onValueChanged.fire(this, {
         name: valueName,
         question: null,
@@ -2303,10 +2459,13 @@ export class SurveyModel extends Base
     this.notifyElementsOnAnyValueOrVariableChanged(valueName);
   }
   private notifyElementsOnAnyValueOrVariableChanged(name: string) {
+    if (this.isEndLoadingFromJson === "processing") return;
     for (var i = 0; i < this.pages.length; i++) {
       this.pages[i].onAnyValueChanged(name);
     }
-    this.locStrsChanged();
+    if (!this.isEndLoadingFromJson) {
+      this.locStrsChanged();
+    }
   }
   private notifyAllQuestionsOnValueChanged() {
     var questions = this.getAllQuestions();
@@ -2322,7 +2481,7 @@ export class SurveyModel extends Base
   }
   private checkOnPageTriggers() {
     var questions = this.getCurrentPageQuestions();
-    var values = {};
+    var values: { [index: string]: any } = {};
     for (var i = 0; i < questions.length; i++) {
       var question = questions[i];
       var name = question.getValueName();
@@ -2331,7 +2490,7 @@ export class SurveyModel extends Base
     this.checkTriggers(values, true);
   }
   private getCurrentPageQuestions(): Array<Question> {
-    var result = [];
+    var result: Array<Question> = [];
     var page = this.currentPage;
     if (!page) return result;
     for (var i = 0; i < page.questions.length; i++) {
@@ -2342,7 +2501,7 @@ export class SurveyModel extends Base
     return result;
   }
   private checkTriggers(key: any, isOnNextPage: boolean) {
-    if (this.isCompleted) return;
+    if (this.isCompleted || this.triggers.length == 0) return;
     var values = this.getFilteredValues();
     var properties = this.getFilteredProperties();
     for (var i: number = 0; i < this.triggers.length; i++) {
@@ -2358,7 +2517,7 @@ export class SurveyModel extends Base
     }
   }
   private runConditions() {
-    if (this.isCompleted) return;
+    if (this.isCompleted || this.isEndLoadingFromJson === "processing") return;
     var pages = this.pages;
     var values = this.getFilteredValues();
     var properties = this.getFilteredProperties();
@@ -2493,6 +2652,7 @@ export class SurveyModel extends Base
   protected onLoadingSurveyFromService() {}
   protected onLoadSurveyFromService() {}
   private updateVisibleIndexes() {
+    if (this.isLoadingFromJson || !!this.isEndLoadingFromJson) return;
     this.updatePageVisibleIndexes(this.showPageNumbers);
     if (this.showQuestionNumbers == "onPage") {
       var visPages = this.visiblePages;
@@ -2518,6 +2678,7 @@ export class SurveyModel extends Base
   }
   public setJsonObject(jsonObj: any) {
     if (!jsonObj) return;
+    this.questionHashesClear();
     this.jsonErrors = null;
     var jsonConverter = new JsonObject();
     jsonConverter.toObject(jsonObj, this);
@@ -2525,21 +2686,29 @@ export class SurveyModel extends Base
       this.jsonErrors = jsonConverter.errors;
     }
   }
+  private isEndLoadingFromJson: string = null;
   endLoadingFromJson() {
+    this.isEndLoadingFromJson = "processing";
     this.isStartedState = this.firstPageIsStarted;
     this.onIsSinglePageChanged();
-    this.runConditions();
-    this.updateVisibleIndexes();
     super.endLoadingFromJson();
     if (this.hasCookie) {
       this.doComplete();
     }
     this.doElementsOnLoad();
+    this.isEndLoadingFromJson = "conditions";
+    this.runConditions();
+    this.notifyElementsOnAnyValueOrVariableChanged("");
+    this.isEndLoadingFromJson = null;
+    this.updateVisibleIndexes();
   }
   protected onBeforeCreating() {}
   protected onCreating() {}
   private getProcessedTextValue(textValue: TextPreProcessorValue): any {
     var name = textValue.name.toLocaleLowerCase();
+    if (["no", "require", "title"].indexOf(name) !== -1) {
+      return;
+    }
     if (name === "pageno") {
       textValue.isExists = true;
       var page = this.currentPage;
@@ -2585,7 +2754,7 @@ export class SurveyModel extends Base
       textValue.isExists = true;
       name = question.getValueName() + name.substr(firstName.length);
       name = name.toLocaleLowerCase();
-      var values = {};
+      var values: { [index: string]: any } = {};
       values[firstName] = textValue.returnDisplayValue
         ? question.getDisplayValue(false)
         : question.value;
@@ -2608,12 +2777,16 @@ export class SurveyModel extends Base
     }
   }
   hasVisibleQuestionByValueName(valueName: string): boolean {
-    var questions = this.getAllQuestions();
+    var questions = this.getQuestionsByValueNameCore(valueName);
+    if (!questions) return false;
     for (var i: number = 0; i < questions.length; i++) {
-      if (questions[i].getValueName() == valueName && questions[i].isVisible)
-        return true;
+      if (questions[i].isVisible) return true;
     }
     return false;
+  }
+  questionCountByValueName(valueName: string): number {
+    var questions = this.getQuestionsByValueNameCore(valueName);
+    return !!questions ? questions.length : 0;
   }
   private clearInvisibleQuestionValues() {
     var questions = this.getAllQuestions();
@@ -2656,7 +2829,7 @@ export class SurveyModel extends Base
    */
   public getValue(name: string): any {
     if (!name || name.length == 0) return null;
-    var value = this.valuesHash[name];
+    var value = this.getDataValueCore(this.valuesHash, name);
     return this.getUnbindValue(value);
   }
   /**
@@ -2678,7 +2851,7 @@ export class SurveyModel extends Base
       newValue = this.getUnbindValue(newValue);
       this.setDataValueCore(this.valuesHash, name, newValue);
     }
-    var triggerKeys = {};
+    var triggerKeys: { [index: string]: any } = {};
     triggerKeys[name] = newValue;
     this.checkTriggers(triggerKeys, false);
     this.runConditions();
@@ -2694,18 +2867,24 @@ export class SurveyModel extends Base
   protected doOnPageAdded(page: PageModel) {
     page.setSurveyImpl(this);
     if (!page.name) page.name = this.generateNewName(this.pages, "page");
+    this.questionHashesPanelAdded(page);
     var options = { page: page };
     this.onPageAdded.fire(this, options);
   }
   private generateNewName(elements: Array<any>, baseName: string): string {
-    var keys = {};
+    var keys: { [index: string]: any } = {};
     for (var i = 0; i < elements.length; i++) keys[elements[i]["name"]] = true;
     var index = 1;
     while (keys[baseName + index]) index++;
     return baseName + index;
   }
   protected tryGoNextPageAutomatic(name: string) {
-    if (!this.goNextPageAutomatic || !this.currentPage) return;
+    if (
+      !!this.isEndLoadingFromJson ||
+      !this.goNextPageAutomatic ||
+      !this.currentPage
+    )
+      return;
     var question = <Question>this.getQuestionByValueName(name);
     if (
       !question ||
@@ -2745,8 +2924,10 @@ export class SurveyModel extends Base
    * @see getComment
    */
   public setComment(name: string, newValue: string) {
+    if (!newValue) newValue = "";
+    if (Helpers.isTwoValueEquals(newValue, this.getComment(name))) return;
     var commentName = name + this.commentPrefix;
-    if (newValue === "" || newValue === null) {
+    if (Helpers.isValueEmpty(newValue)) {
       this.deleteDataValueCore(this.valuesHash, commentName);
     } else {
       this.setDataValueCore(this.valuesHash, commentName, newValue);
@@ -2768,6 +2949,16 @@ export class SurveyModel extends Base
   public clearValue(name: string) {
     this.setValue(name, null);
     this.setComment(name, null);
+  }
+  /**
+   * Set this value to true, to clear value on disable items in checkbox, dropdown and radiogroup questions.
+   * By default values are not cleared on disabled the corresponded items. This property is not persisted in survey json and you have to set it in code.
+   */
+  public get clearValueOnDisableItems(): boolean {
+    return this.getPropertyValue("clearValueOnDisableItems", false);
+  }
+  public set clearValueOnDisableItems(val: boolean) {
+    this.setPropertyValue("clearValueOnDisableItems", val);
   }
   questionVisibilityChanged(question: IQuestion, newValue: boolean) {
     this.updateVisibleIndexes();
@@ -2798,12 +2989,18 @@ export class SurveyModel extends Base
     parentPanel: any,
     rootPanel: any
   ) {
-    if (!question.name)
+    if (!question.name) {
       question.name = this.generateNewName(
         this.getAllQuestions(false, true),
         "question"
       );
-    this.updateVisibleIndexes();
+    }
+    if (!!(<Question>question).page) {
+      this.questionHashesAdded(<Question>question);
+    }
+    if (!this.isLoadingFromJson) {
+      this.updateVisibleIndexes();
+    }
     this.onQuestionAdded.fire(this, {
       question: question,
       name: question.name,
@@ -2813,18 +3010,122 @@ export class SurveyModel extends Base
     });
   }
   questionRemoved(question: IQuestion) {
+    this.questionHashesRemoved(
+      <Question>question,
+      question.name,
+      question.getValueName()
+    );
     this.updateVisibleIndexes();
     this.onQuestionRemoved.fire(this, {
       question: question,
       name: question.name
     });
   }
+  questionRenamed(
+    question: IQuestion,
+    oldName: string,
+    oldValueName: string
+  ): any {
+    this.questionHashesRemoved(<Question>question, oldName, oldValueName);
+    this.questionHashesAdded(<Question>question);
+  }
+  private questionHashes = {
+    names: {},
+    namesInsensitive: {},
+    valueNames: {},
+    valueNamesInsensitive: {}
+  };
+  private questionHashesClear() {
+    this.questionHashes.names = {};
+    this.questionHashes.namesInsensitive = {};
+    this.questionHashes.valueNames = {};
+    this.questionHashes.valueNamesInsensitive = {};
+  }
+  private questionHashesPanelAdded(panel: PanelModelBase) {
+    if (this.isLoadingFromJson) return;
+    var questions = panel.questions;
+    for (var i = 0; i < questions.length; i++) {
+      this.questionHashesAdded(questions[i]);
+    }
+  }
+  private questionHashesAdded(question: Question) {
+    this.questionHashAddedCore(
+      this.questionHashes.names,
+      question,
+      question.name
+    );
+    this.questionHashAddedCore(
+      this.questionHashes.namesInsensitive,
+      question,
+      question.name.toLowerCase()
+    );
+    this.questionHashAddedCore(
+      this.questionHashes.valueNames,
+      question,
+      question.getValueName()
+    );
+    this.questionHashAddedCore(
+      this.questionHashes.valueNamesInsensitive,
+      question,
+      question.getValueName().toLowerCase()
+    );
+  }
+  private questionHashesRemoved(
+    question: Question,
+    name: string,
+    valueName: string
+  ) {
+    if (!!name) {
+      this.questionHashRemovedCore(this.questionHashes.names, question, name);
+      this.questionHashRemovedCore(
+        this.questionHashes.namesInsensitive,
+        question,
+        name.toLowerCase()
+      );
+    }
+    if (!!valueName) {
+      this.questionHashRemovedCore(
+        this.questionHashes.valueNames,
+        question,
+        valueName
+      );
+      this.questionHashRemovedCore(
+        this.questionHashes.valueNamesInsensitive,
+        question,
+        valueName.toLowerCase()
+      );
+    }
+  }
+  private questionHashAddedCore(hash: any, question: Question, name: string) {
+    var res = hash[name];
+    if (!!res) {
+      var res = hash[name];
+      if (res.indexOf(question) < 0) {
+        res.push(question);
+      }
+    } else {
+      hash[name] = [question];
+    }
+  }
+  private questionHashRemovedCore(hash: any, question: Question, name: string) {
+    var res = hash[name];
+    if (!res) return;
+    var index = res.indexOf(question);
+    if (index > -1) {
+      res.splice(index, 1);
+    }
+    if (res.length == 0) {
+      delete hash[name];
+    }
+  }
   panelAdded(panel: IElement, index: number, parentPanel: any, rootPanel: any) {
-    if (!panel.name)
+    if (!panel.name) {
       panel.name = this.generateNewName(
         this.getAllPanels(false, true),
         "panel"
       );
+    }
+    this.questionHashesPanelAdded(<PanelModelBase>(<any>panel));
     this.updateVisibleIndexes();
     this.onPanelAdded.fire(this, {
       panel: panel,
@@ -2844,7 +3145,7 @@ export class SurveyModel extends Base
       name: question.name,
       question: question,
       value: question.value,
-      error: null
+      error: <any>null
     };
     this.onValidateQuestion.fire(this, options);
     return options.error ? new CustomError(options.error, this) : null;
@@ -2854,7 +3155,7 @@ export class SurveyModel extends Base
     var options = {
       name: panel.name,
       panel: panel,
-      error: null
+      error: <any>null
     };
     this.onValidatePanel.fire(this, options);
     return options.error ? new CustomError(options.error, this) : null;
@@ -2880,7 +3181,7 @@ export class SurveyModel extends Base
     return this.textPreProcessor.process(text, returnDisplayValue);
   }
   getSurveyMarkdownHtml(element: Base, text: string): string {
-    var options = { element: element, text: text, html: null };
+    var options = { element: element, text: text, html: <any>null };
     this.onTextMarkdown.fire(this, options);
     return options.html;
   }
@@ -2890,7 +3191,7 @@ export class SurveyModel extends Base
   public getCorrectedAnswerCount(): number {
     var questions = this.getQuizQuestions();
     var counter = 0;
-    var options = { question: null, result: false };
+    var options = { question: <IQuestion>null, result: false };
     for (var i = 0; i < questions.length; i++) {
       options.question = questions[i];
       options.result = options.question.isAnswerCorrect();
@@ -3015,7 +3316,7 @@ export class SurveyModel extends Base
     if (res) res += " ";
     return res + sec + " " + this.getLocString("timerSec");
   }
-  private timerFunc = null;
+  private timerFunc: any = null;
   /**
    * Call this method to start timer that will calculate how much time end-user spends on the survey or on pages
    * @see stopTimer
@@ -3118,7 +3419,7 @@ export class SurveyModel extends Base
   }
   //ISurveyTriggerOwner
   getObjects(pages: string[], questions: string[]): any[] {
-    var result = [];
+    var result: any[] = [];
     Array.prototype.push.apply(result, this.getPagesByNames(pages));
     Array.prototype.push.apply(result, this.getQuestionsByNames(questions));
     return result;
@@ -3143,7 +3444,7 @@ JsonObject.metaData.addClass("survey", [
     choices: () => {
       return surveyLocalization.getLocales();
     },
-    onGetValue: obj => {
+    onGetValue: (obj: any): any => {
       return obj.locale == surveyLocalization.defaultLocale ? null : obj.locale;
     }
   },
@@ -3161,10 +3462,10 @@ JsonObject.metaData.addClass("survey", [
     alternativeName: "elements",
     baseClassName: "question",
     visible: false,
-    onGetValue: function(obj) {
+    onGetValue: function(obj: any): any {
       return null;
     },
-    onSetValue: function(obj, value, jsonConverter) {
+    onSetValue: function(obj: any, value: any, jsonConverter: any) {
       var page = obj.addNewPage("");
       jsonConverter.toObject({ questions: value }, page);
     }
@@ -3176,7 +3477,7 @@ JsonObject.metaData.addClass("survey", [
   },
   { name: "surveyId", visible: false },
   { name: "surveyPostId", visible: false },
-  { name: "surveyShowDataSaving", visible: false },
+  { name: "surveyShowDataSaving:boolean", visible: false },
   "cookieName",
   "sendResultOnPageNext:boolean",
   { name: "showNavigationButtons:boolean", default: true },

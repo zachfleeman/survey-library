@@ -1740,3 +1740,80 @@ QUnit.test("Test defaultValueFromLastPanel property", function(assert) {
     "defaultValueFromLastRow is merging with defaultPanelValue"
   );
 });
+QUnit.test("Generates error on clearIncorrectValue()", function(assert) {
+  var survey = new SurveyModel({
+    elements: [
+      {
+        type: "paneldynamic",
+        name: "qid68",
+        visible: false,
+        visibleIf: "{qid752} contains 'OUI'",
+        isRequired: true,
+        templateElements: [
+          {
+            type: "text",
+            name: "pnd1790"
+          },
+          {
+            type: "dropdown",
+            name: "pnd72"
+          },
+          {
+            type: "radiogroup",
+            name: "pnd1791"
+          }
+        ],
+        panelCount: 1
+      }
+    ]
+  });
+  survey.data = {
+    qid1760: "teste",
+    qid1761: "tygjhg",
+    qid1792: "OUI",
+    qid1787: [{ pnd1788: "teste" }]
+  };
+  survey.clearIncorrectValues();
+  assert.deepEqual(
+    survey.data,
+    {
+      qid1760: "teste",
+      qid1761: "tygjhg",
+      qid1792: "OUI",
+      qid1787: [{ pnd1788: "teste" }],
+      qid68: [{}]
+    },
+    "Do not touch anything"
+  );
+});
+
+QUnit.test("Panel dynamic and survey.data setup", function(assert) {
+  var json = {
+    isSinglePage: true,
+    elements: [
+      {
+        type: "paneldynamic",
+        renderMode: "progressTop",
+        name: "p1",
+        panelCount: 2,
+        templateElements: [
+          {
+            type: "text",
+            name: "q1"
+          }
+        ]
+      }
+    ]
+  };
+
+  var survey = new SurveyModel(json);
+
+  survey.data = {};
+
+  survey.clearIncorrectValues();
+  assert.deepEqual(
+    survey.data,
+    { p1: [{}, {}] },
+    "Remove panels if set empty data"
+  );
+});

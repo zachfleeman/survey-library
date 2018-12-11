@@ -9,7 +9,7 @@ import { LocalizableString, ILocalizableOwner } from "./localizablestring";
 import { QuestionDropdownModel } from "./question_dropdown";
 
 export interface IMatrixData {
-  onMatrixRowChanged(row: MatrixRowModel);
+  onMatrixRowChanged(row: MatrixRowModel): void;
 }
 
 export class MatrixRowModel {
@@ -54,7 +54,7 @@ export interface IMatrixCellsOwner extends ILocalizableOwner {
 
 export class MartrixCells {
   public static DefaultRowName = "default";
-  private values = {};
+  private values: { [index: string]: any } = {};
   public constructor(public cellsOwner: IMatrixCellsOwner) {}
   public get isEmpty(): boolean {
     return Object.keys(this.values).length == 0;
@@ -137,9 +137,9 @@ export class MartrixCells {
   }
   public getJson(): any {
     if (this.isEmpty) return null;
-    var res = {};
+    var res: { [index: string]: any } = {};
     for (var row in this.values) {
-      var resRow = {};
+      var resRow: { [index: string]: any } = {};
       var rowValues = this.values[row];
       for (var col in rowValues) {
         resRow[col] = rowValues[col].getJson();
@@ -175,7 +175,7 @@ export class QuestionMatrixModel
   extends QuestionMatrixBaseModel<MatrixRowModel, ItemValue>
   implements IMatrixData, IMatrixCellsOwner {
   private isRowChanging = false;
-  private cellsValue;
+  private cellsValue: MartrixCells;
 
   protected createColumnValues() {
     return this.createItemValues("columns");
@@ -207,7 +207,7 @@ export class QuestionMatrixModel
    * Returns true, if there is at least one row.
    */
   public get hasRows(): boolean {
-    return this.rowsValue.length > 0;
+    return this.rows.length > 0;
   }
   getRows(): Array<any> {
     return this.rows;
@@ -221,12 +221,13 @@ export class QuestionMatrixModel
     if (!val) val = {};
     var rows = !!this.filteredRows ? this.filteredRows : this.rows;
     for (var i = 0; i < rows.length; i++) {
-      if (!rows[i].value) continue;
+      var row = rows[i];
+      if (this.isValueEmpty(row.value)) continue;
       result.push(
         this.createMatrixRow(
-          rows[i],
-          this.id + "_" + this.rows[i].value.toString(),
-          val[this.rows[i].value]
+          row,
+          this.id + "_" + row.value.toString(),
+          val[row.value]
         )
       );
     }
@@ -331,7 +332,7 @@ export class QuestionMatrixModel
   public getDisplayValueCore(keysAsText: boolean): any {
     var values = this.value;
     if (!values) return values;
-    var res = {};
+    var res: { [index: string]: any } = {};
     for (var key in values) {
       var newKey = keysAsText
         ? ItemValue.getTextOrHtmlByValue(this.rows, key)
@@ -380,22 +381,10 @@ JsonObject.metaData.addClass(
   "matrix",
   [
     {
-      name: "columns:itemvalues",
-      onGetValue: function(obj: any) {
-        return ItemValue.getData(obj.columns);
-      },
-      onSetValue: function(obj: any, value: any) {
-        obj.columns = value;
-      }
+      name: "columns:itemvalue[]"
     },
     {
-      name: "rows:itemvalues",
-      onGetValue: function(obj: any) {
-        return ItemValue.getData(obj.rows);
-      },
-      onSetValue: function(obj: any, value: any) {
-        obj.rows = value;
-      }
+      name: "rows:itemvalue[]"
     },
     { name: "cells:cells", serializationProperty: "cells" },
     "isAllRowRequired:boolean"

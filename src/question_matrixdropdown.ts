@@ -67,7 +67,7 @@ export class QuestionMatrixDropdownModel extends QuestionMatrixDropdownModelBase
           rowValue = displayRowValue;
         }
       }
-      res[rowValue] = this.getRowDisplayValue(rows[i], val);
+      (<any>res)[rowValue] = this.getRowDisplayValue(rows[i], val);
     }
     return values;
   }
@@ -89,7 +89,7 @@ export class QuestionMatrixDropdownModel extends QuestionMatrixDropdownModelBase
     for (var key in val) {
       if (ItemValue.getItemByValue(rows, key)) {
         if (newVal == null) newVal = {};
-        newVal[key] = val[key];
+        (<any>newVal)[key] = val[key];
       } else {
         isChanged = true;
       }
@@ -123,13 +123,7 @@ JsonObject.metaData.addClass(
   "matrixdropdown",
   [
     {
-      name: "rows:itemvalues",
-      onGetValue: function(obj: any) {
-        return ItemValue.getData(obj.rows);
-      },
-      onSetValue: function(obj: any, value: any) {
-        obj.rows = value;
-      }
+      name: "rows:itemvalue[]"
     },
     "rowsVisibleIf:condition"
   ],

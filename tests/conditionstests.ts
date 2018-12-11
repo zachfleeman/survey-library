@@ -671,12 +671,12 @@ QUnit.test("ExpressionOperand: parser, 1 + 2 + 3", function(assert) {
   parser.parse("1 + 2 - 3 >= 10", node);
   assert.equal(node.children.length, 1);
   var left = <ExpressionOperand>node.children[0].left;
-  var leftLeft = <ExpressionOperand>left.left;
-  assert.equal(leftLeft.left.origionalValue, 1);
-  assert.equal(leftLeft.right.origionalValue, 2);
-  assert.equal(leftLeft.operator, "+");
-  assert.equal(left.operator, "-");
-  assert.equal(left.right.origionalValue, 3);
+  var leftright = <ExpressionOperand>left.right;
+  assert.equal(left.left.origionalValue, 1);
+  assert.equal(left.operator, "+");
+  assert.equal(leftright.left.origionalValue, 2);
+  assert.equal(leftright.operator, "-");
+  assert.equal(leftright.right.origionalValue, 3);
   assert.equal(node.children[0].operator, "greaterorequal");
   assert.equal(node.children[0].right.origionalValue, 10);
   assert.equal(node.connective, "and");
@@ -820,6 +820,52 @@ QUnit.test("ExpressionRunner, iif nested using", function(assert) {
   values.a = 1;
   assert.equal(runner.run(values), "low", "1 + 5 < 10");
 });
+
+QUnit.test("ExpressionRunner, iif nested using 2", function(assert) {
+  var runner = new ExpressionRunner(
+    "iif(({a} + {b}) > 20, ({a} * 5 + {b}), iif({a} + {b} > 10, 5*({a}+ {b}), {a}))"
+  );
+  var values = { a: 10, b: 20 };
+  assert.equal(runner.run(values), 10 * 5 + 20, "10 + 20 > 20");
+  values.b = 5;
+  assert.equal(runner.run(values), 5 * (10 + 5), "10 + 5 > 10 && 10 + 5 < 20");
+  values.a = 1;
+  assert.equal(runner.run(values), 1, "1 + 5 < 10");
+});
+
+function avg(params: any[]): any {
+  var res = 0;
+  for (var i = 0; i < params.length; i++) {
+    res += params[i];
+  }
+  return params.length > 0 ? res / params.length : 0;
+}
+
+QUnit.test(
+  "ExpressionRunner, iif nested using with function, Bug T1302, (https://surveyjs.answerdesk.io/ticket/details/T1302)",
+  function(assert) {
+    function incValue(params: any[]): any {
+      return params[0] + 1;
+    }
+    FunctionFactory.Instance.register("incValue", incValue);
+
+    var runner = new ExpressionRunner(
+      'incValue(iif(({REVIEW_COVER} contains "REVIEW_SM") and ({REVIEW_COVER} contains "REVIEW_GL"), ({RATES_PROPERTY_SD}+{RATES_LIABILITY_SD}+{RATES_SEXUAL_MOL_END_SD}), iif(({REVIEW_COVER} notcontains "REVIEW_SM") and ({REVIEW_COVER} contains "REVIEW_GL"), ({RATES_PROPERTY_SD}+{RATES_LIABILITY_SD}), ({RATES_PROPERTY_SD}))))'
+    );
+    var values = {
+      REVIEW_COVER: ["REVIEW_SM", "REVIEW_GL"],
+      RATES_PROPERTY_SD: 1,
+      RATES_LIABILITY_SD: 2,
+      RATES_SEXUAL_MOL_END_SD: 3
+    };
+    assert.equal(
+      runner.run(values),
+      1 + 2 + 3 + 1,
+      "the first condition is calling"
+    );
+    FunctionFactory.Instance.unregister("incValue");
+  }
+);
 
 QUnit.test("ExpressionRunner, ^ operator", function(assert) {
   var runner = new ExpressionRunner("{a} ^ 3 + {b} ^ 0.5");
@@ -979,3 +1025,15 @@ QUnit.test("contain and noncontain for strings", function(assert) {
     "notcontains: 'babc' contains 'ab' - false"
   );
 });
+
+QUnit.test(
+  "ExpressionRunner: 7 * (({q1} * 0.4) + ({q2} * 0.6)), bug# 1423",
+  function(assert) {
+    var runner = new ExpressionRunner("7 * ((10 * 0.4) + (20 * 0.6))");
+    assert.equal(
+      runner.run({}),
+      7 * (4 + 12),
+      "7 * ((10 * 0.4) + (20 * 0.6)) is 112"
+    );
+  }
+);

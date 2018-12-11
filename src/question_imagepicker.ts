@@ -9,6 +9,7 @@ import { ItemValue } from "./itemvalue";
 export class QuestionImagePickerModel extends QuestionCheckboxBase {
   constructor(public name: string) {
     super(name);
+    this.colCount = 0;
   }
   public getType(): string {
     return "imagepicker";
@@ -78,10 +79,12 @@ export class QuestionImagePickerModel extends QuestionCheckboxBase {
   }
 }
 
-JsonObject.metaData.addClass("imageitemvalue", [], null, "itemvalue");
-JsonObject.metaData.addProperty("imageitemvalue", {
-  name: "imageLink"
-});
+JsonObject.metaData.addClass(
+  "imageitemvalue",
+  ["imageLink"],
+  null,
+  "itemvalue"
+);
 
 JsonObject.metaData.addClass(
   "imagepicker",
@@ -123,13 +126,7 @@ JsonObject.metaData.addProperty("imagepicker", {
   default: false
 });
 JsonObject.metaData.addProperty("imagepicker", {
-  name: "choices:imageitemvalue",
-  onGetValue: function(obj) {
-    return ItemValue.getData(obj.choices);
-  },
-  onSetValue: function(obj, value) {
-    obj.choices = value;
-  }
+  name: "choices:imageitemvalue[]"
 });
 
 QuestionFactory.Instance.registerQuestion("imagepicker", name => {

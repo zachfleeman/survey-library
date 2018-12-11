@@ -7,11 +7,6 @@ import { ReactQuestionFactory } from "./reactquestionfactory";
 export class SurveyQuestionImagePicker extends SurveyQuestionElementBase {
   constructor(props: any) {
     super(props);
-    this.state = { choicesChanged: 0 };
-    var self = this;
-    this.question.choicesChangedCallback = function() {
-      self.setState({ choicesChanged: self.state.choicesChanged + 1 });
-    };
     this.handleOnChange = this.handleOnChange.bind(this);
   }
   protected get question(): QuestionImagePickerModel {
@@ -21,7 +16,7 @@ export class SurveyQuestionImagePicker extends SurveyQuestionElementBase {
     super.componentWillReceiveProps(nextProps);
     this.handleOnChange = this.handleOnChange.bind(this);
   }
-  handleOnChange(event) {
+  handleOnChange(event: any) {
     if (this.question.multiSelect) {
       if (event.target.checked) {
         this.question.value = this.question.value.concat(event.target.value);
@@ -40,10 +35,8 @@ export class SurveyQuestionImagePicker extends SurveyQuestionElementBase {
     var cssClasses = this.question.cssClasses;
     return (
       <fieldset className={cssClasses.root}>
+        <legend aria-label={this.question.locTitle.renderedHtml} />
         {this.getItems(cssClasses)}
-        <legend style={{ display: "none" }}>
-          {this.question.locTitle.renderedHtml}
-        </legend>
       </fieldset>
     );
   }

@@ -145,10 +145,12 @@ export class ExpressionOperand extends Operand {
     super(null);
   }
   public getValue(processValue: ProcessValue): any {
-    if (Helpers.isValueEmpty(this.left) || Helpers.isValueEmpty(this.right))
-      return null;
+    if (!this.left) return null;
+    if (!this.right) return this.left.getValue(processValue);
     var l = this.left.getValue(processValue);
     var r = this.right.getValue(processValue);
+    if (Helpers.isValueEmpty(l)) l = 0;
+    if (Helpers.isValueEmpty(r)) r = 0;
     if (this.operator == "+") {
       return l + r;
     }
@@ -173,7 +175,7 @@ export class ExpressionOperand extends Operand {
   }
   public fillVariables(vars: Array<string>) {
     if (!!this.left) this.left.fillVariables(vars);
-    if (!!this.right) this.left.fillVariables(vars);
+    if (!!this.right) this.right.fillVariables(vars);
   }
   public toString() {
     var res = this.left ? this.left.toString() : "";
@@ -230,28 +232,28 @@ export class Condition {
   static get operators() {
     if (Condition.operatorsValue != null) return Condition.operatorsValue;
     Condition.operatorsValue = {
-      empty: function(left, right) {
+      empty: function(left: any, right: any) {
         if (left == null) return true;
         return !left;
       },
-      notempty: function(left, right) {
+      notempty: function(left: any, right: any) {
         if (left == null) return false;
         return !!left;
       },
-      equal: function(left, right) {
+      equal: function(left: any, right: any) {
         return Helpers.isTwoValueEquals(left, right, true);
       },
-      notequal: function(left, right) {
+      notequal: function(left: any, right: any) {
         return !Helpers.isTwoValueEquals(left, right, true);
       },
-      contains: function(left, right) {
+      contains: function(left: any, right: any) {
         return Condition.operatorsValue.containsCore(left, right, true);
       },
-      notcontains: function(left, right) {
+      notcontains: function(left: any, right: any) {
         if (!left && !Helpers.isValueEmpty(right)) return true;
         return Condition.operatorsValue.containsCore(left, right, false);
       },
-      containsCore: function(left, right, isContains) {
+      containsCore: function(left: any, right: any, isContains: any) {
         if (!left) return false;
         if (!left.length) {
           left = left.toString();
@@ -273,19 +275,19 @@ export class Condition {
         }
         return isContains;
       },
-      greater: function(left, right) {
+      greater: function(left: any, right: any) {
         if (left == null || right == null) return false;
         return left > right;
       },
-      less: function(left, right) {
+      less: function(left: any, right: any) {
         if (left == null || right == null) return false;
         return left < right;
       },
-      greaterorequal: function(left, right) {
+      greaterorequal: function(left: any, right: any) {
         if (left == null || right == null) return false;
         return left >= right;
       },
-      lessorequal: function(left, right) {
+      lessorequal: function(left: any, right: any) {
         if (left == null || right == null) return false;
         return left <= right;
       }
@@ -399,7 +401,7 @@ export class ConditionNode {
     this.connective = "and";
   }
   public getVariables(): Array<string> {
-    var vars = [];
+    var vars: Array<any> = [];
     this.fillVariables(vars);
     return vars;
   }

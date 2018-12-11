@@ -6,27 +6,13 @@ import { ImplementorBase } from "./kobase";
 
 export class QuestionImplementor extends ImplementorBase {
   private koDummy: any;
-  koVisible: any;
-  koPaddingLeft: any;
-  koPaddingRight: any;
-  koRenderWidth: any;
   koTemplateName: any;
   koElementType: any;
   koValue: any;
   koComment: any;
-  koIsReadOnly: any;
   constructor(public question: Question) {
     super(question);
     var self = this;
-    question.registerFunctionOnPropertyValueChanged("isVisible", function() {
-      self.onVisibilityChanged();
-    });
-    question.registerFunctionOnPropertiesValueChanged(
-      ["renderWidth", "indent", "rightIndent"],
-      function() {
-        self.onRenderWidthChanged();
-      }
-    );
     question.surveyLoadCallback = function() {
       self.onSurveyLoad();
     };
@@ -34,27 +20,15 @@ export class QuestionImplementor extends ImplementorBase {
       return self.getTemplateName();
     });
     this.koElementType = ko.observable("survey-question");
-    this.koVisible = ko.observable(this.question.isVisible);
-    this.koRenderWidth = ko.observable(this.question.renderWidth);
-    this.koPaddingLeft = ko.observable(
-      self.getIndentSize(self.question.indent)
-    );
-    this.koPaddingRight = ko.observable(
-      self.getIndentSize(self.question.rightIndent)
-    );
-    this.question["koElementType"] = this.koElementType;
-    this.question["koTemplateName"] = this.koTemplateName;
-    this.question["koVisible"] = this.koVisible;
-    this.question["koRenderWidth"] = this.koRenderWidth;
-    this.question["koPaddingLeft"] = this.koPaddingLeft;
-    this.question["koPaddingRight"] = this.koPaddingRight;
-    this.question["updateQuestion"] = function() {
+    (<any>this.question)["koElementType"] = this.koElementType;
+    (<any>this.question)["koTemplateName"] = this.koTemplateName;
+    (<any>this.question)["updateQuestion"] = function() {
       self.updateQuestion();
     };
-    this.question["koCss"] = ko.pureComputed(function() {
+    (<any>this.question)["koCss"] = ko.pureComputed(function() {
       return self.question.cssClasses;
     });
-    this.question["koRootClass"] = ko.pureComputed(function() {
+    (<any>this.question)["koRootClass"] = ko.pureComputed(function() {
       var result = self.question.cssClasses.mainRoot;
       if (self.question.getTitleLocation() === "left") {
         result += " sv_qstn_left";
@@ -65,7 +39,7 @@ export class QuestionImplementor extends ImplementorBase {
       return result;
     });
 
-    question.valueChangedCallback = function() {
+    question._valueChangedCallback = function() {
       self.onValueChanged();
     };
     question.commentChangedCallback = function() {
@@ -74,23 +48,21 @@ export class QuestionImplementor extends ImplementorBase {
     question.registerFunctionOnPropertyValueChanged("visibleIndex", function() {
       self.onVisibleIndexChanged();
     });
-    question.registerFunctionOnPropertyValueChanged("isReadOnly", function() {
-      self.onReadOnlyChanged();
-    });
     this.koDummy = ko.observable(0);
     this.koValue = this.createkoValue();
     this.koComment = ko.observable(this.question.comment);
-    this.koIsReadOnly = ko.observable(this.question.isReadOnly);
-    this.koValue.subscribe(function(newValue) {
+    this.koValue.subscribe(function(newValue: any) {
       self.updateValue(newValue);
     });
-    this.koComment.subscribe(function(newValue) {
+    this.koComment.subscribe(function(newValue: any) {
       self.updateComment(newValue);
     });
-    this.question["koValue"] = this.koValue;
-    this.question["koComment"] = this.koComment;
-    this.question["koIsReadOnly"] = this.koIsReadOnly;
-    this.question["koQuestionAfterRender"] = function(el, con) {
+    (<any>this.question)["koValue"] = this.koValue;
+    (<any>this.question)["koComment"] = this.koComment;
+    (<any>this.question)["koQuestionAfterRender"] = function(
+      el: any,
+      con: any
+    ) {
       self.koQuestionAfterRender(el, con);
     };
   }
@@ -113,27 +85,9 @@ export class QuestionImplementor extends ImplementorBase {
   protected onVisibleIndexChanged() {
     this.updateKoDummy();
   }
-  protected onSurveyLoad() {
-    this.onVisibilityChanged();
-    this.onReadOnlyChanged();
-  }
-  protected onVisibilityChanged() {
-    this.koVisible(this.question.isVisible);
-  }
-  protected onReadOnlyChanged() {
-    this.koIsReadOnly(this.question.isReadOnly);
-  }
-  protected onRenderWidthChanged() {
-    this.koRenderWidth(this.question.renderWidth);
-    this.koPaddingLeft(this.getIndentSize(this.question.indent));
-    this.koPaddingRight(this.getIndentSize(this.question.rightIndent));
-  }
+  protected onSurveyLoad() {}
   protected getQuestionTemplate(): string {
     return this.question.getTemplate();
-  }
-  private getIndentSize(indent: number): string {
-    if (indent < 1) return "";
-    return indent * this.question.cssClasses.indent + "px";
   }
   private getTemplateName(): string {
     if (
@@ -167,7 +121,7 @@ export class QuestionImplementor extends ImplementorBase {
     this.koDummy(this.koDummy() + 1);
     this.question.locTitle.onChanged();
   }
-  protected koQuestionAfterRender(elements, con) {
+  protected koQuestionAfterRender(elements: any, con: any) {
     var el = SurveyElement.GetFirstNonTextElement(elements);
     var tEl = elements[0];
     if (tEl.nodeName === "#text") tEl.data = "";

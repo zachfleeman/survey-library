@@ -35,7 +35,7 @@ export var defaultBootstrapMaterialCss = {
   },
   panel: {
     title: "sv_p_title",
-    description: "small",
+    description: "small sv_p_description",
     container: "sv_p_container"
   },
   error: {
@@ -70,6 +70,7 @@ export var defaultBootstrapMaterialCss = {
     label: "sv_q_m_label radio-inline",
     cellText: "sv_q_m_cell_text",
     cellTextSelected: "sv_q_m_cell_selected bg-primary",
+    cellLabel: "sv_q_m_cell_label",
     itemValue: "form-control"
   },
   matrixdropdown: { root: "table", itemValue: "form-group" },
@@ -150,4 +151,4 @@ export var defaultBootstrapMaterialCss = {
     }
   }
 };
-surveyCss["bootstrapmaterial"] = defaultBootstrapMaterialCss;
+(<any>surveyCss)["bootstrapmaterial"] = defaultBootstrapMaterialCss;

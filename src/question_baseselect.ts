@@ -8,14 +8,15 @@ import { CustomError } from "./error";
 import { ChoicesRestfull } from "./choicesRestfull";
 import { LocalizableString } from "./localizablestring";
 import { ConditionRunner } from "./conditions";
+import { turkishSurveyStrings } from "./localization/turkish";
 
 /**
  * It is a base class for checkbox, dropdown and radiogroup questions.
  */
 export class QuestionSelectBase extends Question {
-  private visibleChoicesCache: Array<ItemValue> = null;
   private filteredChoicesValue: Array<ItemValue> = null;
   private conditionChoicesVisibleIfRunner: ConditionRunner;
+  private conditionChoicesEnableIfRunner: ConditionRunner;
   private commentValue: string;
   private otherItemValue: ItemValue = new ItemValue("other");
   protected cachedValue: any;
@@ -26,7 +27,6 @@ export class QuestionSelectBase extends Question {
    * @see choices
    */
   public choicesByUrl: ChoicesRestfull;
-  choicesChangedCallback: () => void;
   constructor(name: string) {
     super(name);
     var self = this;
@@ -42,6 +42,7 @@ export class QuestionSelectBase extends Question {
         self.updateVisibilityBasedOnChoices();
       }
     );
+    this.createNewArray("visibleChoices");
     this.choicesByUrl = this.createRestfull();
     this.choicesByUrl.owner = this;
     var locOtherText = this.createLocalizableString("otherText", this, true);
@@ -82,6 +83,7 @@ export class QuestionSelectBase extends Question {
   /**
    * An expression that returns true or false. It runs against each choices item and if for this item it returns true, then the item is visible otherwise the item becomes invisible. Please use {item} to get the current item value in the expression.
    * @see visibleIf
+   * @see choicesEnableIf
    */
   public get choicesVisibleIf(): string {
     return this.getPropertyValue("choicesVisibleIf", "");
@@ -90,8 +92,20 @@ export class QuestionSelectBase extends Question {
     this.setPropertyValue("choicesVisibleIf", val);
     this.filterItems();
   }
+  /**
+   * An expression that returns true or false. It runs against each choices item and if for this item it returns true, then the item is enabled otherwise the item becomes disabled. Please use {item} to get the current item value in the expression.
+   * @see choicesVisibleIf
+   */
+  public get choicesEnableIf(): string {
+    return this.getPropertyValue("choicesEnableIf", "");
+  }
+  public set choicesEnableIf(val: string) {
+    this.setPropertyValue("choicesEnableIf", val);
+    this.filterItems();
+  }
   public runCondition(values: HashTable<any>, properties: HashTable<any>) {
     super.runCondition(values, properties);
+    this.runItemsEnableCondition(values, properties);
     this.runItemsCondition(values, properties);
   }
   protected setDefaultValue() {
@@ -110,11 +124,16 @@ export class QuestionSelectBase extends Question {
     this.comment = this.defaultValue;
   }
   protected filterItems(): boolean {
-    if (this.isLoadingFromJson || !this.data || this.isDesignMode) return false;
-    return this.runItemsCondition(
-      this.getDataFilteredValues(),
-      this.getDataFilteredProperties()
-    );
+    if (
+      this.isLoadingFromJson ||
+      !this.data ||
+      this.areInvisibleElementsShowing
+    )
+      return false;
+    var values = this.getDataFilteredValues();
+    var properties = this.getDataFilteredProperties();
+    this.runItemsEnableCondition(values, properties);
+    return this.runItemsCondition(values, properties);
   }
   protected runItemsCondition(
     values: HashTable<any>,
@@ -122,7 +141,10 @@ export class QuestionSelectBase extends Question {
   ): boolean {
     this.setConditionalChoicesRunner();
     var hasChanges = this.runConditionsForItems(values, properties);
-    if (this.filteredChoicesValue.length === this.activeChoices.length) {
+    if (
+      !!this.filteredChoicesValue &&
+      this.filteredChoicesValue.length === this.activeChoices.length
+    ) {
       this.filteredChoicesValue = null;
     }
     if (hasChanges) {
@@ -132,6 +154,21 @@ export class QuestionSelectBase extends Question {
       this.onVisibleChoicesChanged();
     }
     return hasChanges;
+  }
+  protected runItemsEnableCondition(
+    values: HashTable<any>,
+    properties: HashTable<any>
+  ): any {
+    this.setConditionalEnableChoicesRunner();
+    var hasChanged = ItemValue.runEnabledConditionsForItems(
+      this.activeChoices,
+      this.conditionChoicesEnableIfRunner,
+      values,
+      properties
+    );
+    if (hasChanged) {
+      this.clearDisabledValues();
+    }
   }
   private setConditionalChoicesRunner() {
     if (this.choicesVisibleIf) {
@@ -143,6 +180,18 @@ export class QuestionSelectBase extends Question {
       this.conditionChoicesVisibleIfRunner.expression = this.choicesVisibleIf;
     } else {
       this.conditionChoicesVisibleIfRunner = null;
+    }
+  }
+  private setConditionalEnableChoicesRunner() {
+    if (this.choicesEnableIf) {
+      if (!this.conditionChoicesEnableIfRunner) {
+        this.conditionChoicesEnableIfRunner = new ConditionRunner(
+          this.choicesEnableIf
+        );
+      }
+      this.conditionChoicesEnableIfRunner.expression = this.choicesEnableIf;
+    } else {
+      this.conditionChoicesEnableIfRunner = null;
     }
   }
   private runConditionsForItems(
@@ -221,6 +270,10 @@ export class QuestionSelectBase extends Question {
     if (includeOther && val == this.otherItem.value) return false;
     return ItemValue.getItemByValue(this.filteredChoices, val) == null;
   }
+  protected isValueDisabled(val: any): boolean {
+    var itemValue = ItemValue.getItemByValue(this.filteredChoices, val);
+    return !!itemValue && !itemValue.isEnabled;
+  }
   /**
    * The list of items. Every item has value and text. If text is empty, the value is rendered. The item text supports markdown.
    * @see choicesByUrl
@@ -293,21 +346,44 @@ export class QuestionSelectBase extends Question {
   get locOtherErrorText(): LocalizableString {
     return this.getLocalizableString("otherErrorText");
   }
-
   /**
    * The list of items as they will be rendered. If needed items are sorted and the other item is added.
    * @see hasOther
    * @see choicesOrder
+   * @see enabledChoices
    */
   public get visibleChoices(): Array<ItemValue> {
-    if (this.canUseFilteredChoices()) return this.filteredChoices;
-    if (!this.visibleChoicesCache) {
-      this.visibleChoicesCache = this.sortVisibleChoices(
-        this.filteredChoices.slice()
-      );
-      this.addToVisibleChoices(this.visibleChoicesCache);
+    return this.getPropertyValue("visibleChoices", []);
+  }
+  /**
+   * The list of enabled items as they will be rendered. The disabled items are not included
+   * @see hasOther
+   * @see choicesOrder
+   * @see visibleChoices
+   */
+  public get enabledChoices(): Array<ItemValue> {
+    var res = [];
+    var items = this.visibleChoices;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].isEnabled) res.push(items[i]);
     }
-    return this.visibleChoicesCache;
+    return res;
+  }
+  protected updateVisibleChoices() {
+    if (this.isLoadingFromJson) return;
+    var newValue = new Array<ItemValue>();
+    var calcValue = this.calcVisibleChoices();
+    if (!calcValue) calcValue = [];
+    for (var i = 0; i < calcValue.length; i++) {
+      newValue.push(calcValue[i]);
+    }
+    this.setPropertyValue("visibleChoices", newValue);
+  }
+  private calcVisibleChoices(): Array<ItemValue> {
+    if (this.canUseFilteredChoices()) return this.filteredChoices;
+    var res = this.sortVisibleChoices(this.filteredChoices.slice());
+    this.addToVisibleChoices(res);
+    return res;
   }
   protected canUseFilteredChoices(): boolean {
     return !this.hasOther && this.choicesOrder == "none";
@@ -447,8 +523,7 @@ export class QuestionSelectBase extends Question {
   }
   protected onVisibleChoicesChanged() {
     if (this.isLoadingFromJson) return;
-    this.visibleChoicesCache = null;
-    this.fireCallback(this.choicesChangedCallback);
+    this.updateVisibleChoices();
     this.updateVisibilityBasedOnChoices();
   }
   private updateVisibilityBasedOnChoices() {
@@ -474,15 +549,32 @@ export class QuestionSelectBase extends Question {
     return Helpers.randomizeArray<ItemValue>(array);
   }
   public clearIncorrectValues() {
+    if (
+      !!this.survey &&
+      this.survey.questionCountByValueName(this.getValueName()) > 1
+    )
+      return;
+    this.clearIncorrectValuesCore();
+  }
+  private clearDisabledValues() {
+    if (!this.survey || !this.survey.clearValueOnDisableItems) return;
+    this.clearDisabledValuesCore();
+  }
+  protected clearIncorrectValuesCore() {
     var val = this.value;
     if (this.hasUnknownValue(val, true)) {
+      this.clearValue();
+    }
+  }
+  protected clearDisabledValuesCore() {
+    if (this.isValueDisabled(this.value)) {
       this.clearValue();
     }
   }
   clearUnusedValues() {
     super.clearUnusedValues();
     if (!this.isOtherSelected && !this.hasComment) {
-      this.comment = null;
+      this.comment = "";
     }
   }
 }
@@ -512,13 +604,7 @@ JsonObject.metaData.addClass(
     "hasComment:boolean",
     "hasOther:boolean",
     {
-      name: "choices:itemvalues",
-      onGetValue: function(obj: any) {
-        return ItemValue.getData(obj.choices);
-      },
-      onSetValue: function(obj: any, value: any) {
-        obj.choices = value;
-      }
+      name: "choices:itemvalue[]"
     },
     {
       name: "choicesOrder",
@@ -537,6 +623,7 @@ JsonObject.metaData.addClass(
     },
     "hideIfChoicesEmpty:boolean",
     "choicesVisibleIf:condition",
+    "choicesEnableIf:condition",
     { name: "otherText", serializationProperty: "locOtherText" },
     { name: "otherErrorText", serializationProperty: "locOtherErrorText" },
     { name: "storeOthersAsComment:boolean", default: true }

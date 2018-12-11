@@ -24,6 +24,7 @@ import { surveyLocalization } from "../../src/surveyStrings";
 import { QuestionRating } from "../../src/knockout/koquestion_rating";
 import { QuestionImagePicker } from "../../src/knockout/koquestion_imagepicker";
 import { JsonObject } from "../../src/jsonobject";
+import { SurveyTimer } from "../../src/surveytimer";
 import * as ko from "knockout";
 
 export default QUnit.module("koTests");
@@ -340,24 +341,20 @@ QUnit.test("koElements", function(assert) {
   var page = survey.addNewPage("page1");
   page.addNewQuestion("text", "q1");
   page.addNewPanel("panel1");
-  assert.equal(page["koRows"]().length, 2, "There are two rows");
+  assert.equal(page.rows.length, 2, "There are two rows");
+  assert.equal(page.rows[0].elements.length, 1, "One element in the first row");
   assert.equal(
-    page.rows[0].questions.length,
-    1,
-    "One element in the first row"
-  );
-  assert.equal(
-    page.rows[1].questions.length,
+    page.rows[1].elements.length,
     1,
     "One element in the second row"
   );
   assert.equal(
-    page["koRows"]()[0]["koElements"]().length,
+    page.rows[0].elements.length,
     1,
     "One element in the first row, ko"
   );
   assert.equal(
-    page["koRows"]()[1]["koElements"]().length,
+    page.rows[1].elements.length,
     1,
     "One element in the second row, ko"
   );
@@ -384,13 +381,13 @@ QUnit.test("On make survey data empy for Multiple text question", function(
   survey.data = null;
   assert.equal(question.items[0]["koValue"](), null, "Make the data empty");
 });
-QUnit.test("koVisible property", function(assert) {
+QUnit.test("isVisible property", function(assert) {
   var survey = new Survey();
   var page = survey.addNewPage("page1");
   var question = page.addNewQuestion("text", "q1");
-  assert.equal(question["koVisible"](), true, "it is true by default");
+  assert.equal(question.isVisible, true, "it is true by default");
   question.visible = false;
-  assert.equal(question["koVisible"](), false, "it is false now");
+  assert.equal(question.isVisible, false, "it is false now");
 });
 QUnit.test("koComment property", function(assert) {
   var survey = new Survey();
@@ -460,23 +457,23 @@ QUnit.test("Localization, choices.locText.koRenderedHtml, #349", function(
   var q1 = <QuestionCheckbox>page.addNewQuestion("checkbox", "q1");
   q1.choices = [{ value: 1, text: { default: "text1", de: "text_de" } }];
   assert.equal(
-    q1["koVisibleChoices"]()[0].text,
+    q1.visibleChoices[0].text,
     "text1",
     "default locale, text property is 'text1'"
   );
   assert.equal(
-    q1["koVisibleChoices"]()[0].locText.koRenderedHtml(),
+    q1.visibleChoices[0].locText["koRenderedHtml"](),
     "text1",
     "default locale, locText.koRenderedHtml() is 'text1'"
   );
   survey.locale = "de";
   assert.equal(
-    q1["koVisibleChoices"]()[0].text,
+    q1.visibleChoices[0].text,
     "text_de",
     "default locale, text property is 'text_de'"
   );
   assert.equal(
-    q1["koVisibleChoices"]()[0].locText.koRenderedHtml(),
+    q1.visibleChoices[0].locText["koRenderedHtml"](),
     "text_de",
     "default locale, locText.koRenderedHtml() is 'text_de'"
   );
@@ -489,15 +486,15 @@ QUnit.test("Localization, otherItem", function(assert) {
   var q1 = <QuestionCheckbox>page.addNewQuestion("checkbox", "q1");
   q1.choices = [1, 2];
   q1.hasOther = true;
-  var defaultText = q1["koVisibleChoices"]()[2].locText["koRenderedHtml"]();
+  var defaultText = q1.visibleChoices[2].locText["koRenderedHtml"]();
   assert.equal(
-    q1["koVisibleChoices"]()[2].locText["koRenderedHtml"](),
+    q1.visibleChoices[2].locText["koRenderedHtml"](),
     surveyLocalization.getString("otherItemText"),
     "use default locale"
   );
   survey.locale = "de";
   assert.notEqual(
-    q1["koVisibleChoices"]()[2].locText["koRenderedHtml"](),
+    q1.visibleChoices[2].locText["koRenderedHtml"](),
     defaultText,
     "use another locale locale"
   );
@@ -518,7 +515,7 @@ QUnit.test("otherItem, set text, editor: #90", function(assert) {
   });
   var q1 = <QuestionCheckbox>survey.pages[0].questions[0];
   assert.equal(q1.name, "q1", "question load correctly");
-  assert.equal(q1["koVisibleChoices"]()[2].text, "my other", "use otherText");
+  assert.equal(q1.visibleChoices[2].text, "my other", "use otherText");
 });
 
 QUnit.test("Update page.title correctly with numbers", function(assert) {
@@ -543,23 +540,49 @@ QUnit.test("Update page.title correctly with numbers", function(assert) {
 });
 
 QUnit.test(
-  "Survey display mode should set koIsReadonly to true for questions",
+  "Survey display mode should set isReadOnly to true for questions",
   function(assert) {
     var survey = new Survey();
     var page = new Page("page1");
     survey.addPage(page);
     var question = new QuestionText("q1");
     page.addQuestion(question);
+    var readOnlyChangedCounter = 0;
+    ko.computed(() => {
+      var val = question.isReadOnly;
+      readOnlyChangedCounter++;
+    });
     assert.equal(
-      question["koIsReadOnly"](),
+      question.isReadOnly,
       false,
       "by default question is not readonly"
     );
+    assert.equal(
+      readOnlyChangedCounter,
+      1,
+      "readOnlyChangedCounter - nothing chanhed"
+    );
     survey.mode = "display";
     assert.equal(
-      question["koIsReadOnly"](),
+      question.isReadOnly,
       true,
       "survey in display mode, question is readonly"
+    );
+    assert.equal(
+      readOnlyChangedCounter,
+      2,
+      "readOnlyChangedCounter - mode chanhed 1"
+    );
+    survey.mode = "edit";
+    assert.equal(
+      question.isReadOnly,
+      false,
+      "survey in edit mode, question is not readonly"
+    );
+    assert.equal(
+      readOnlyChangedCounter,
+      3,
+      "readOnlyChangedCounter - mode chanhed 2"
     );
   }
 );
@@ -631,13 +654,13 @@ QUnit.test("Load Panel from Json + visibleIf + startWithNewLine", function(
   };
   var survey = new Survey(json);
   var panel = survey.getAllPanels()[0];
-  var koRows = panel["koRows"];
-  var row = koRows()[0];
+  var rows = (<Panel>panel).rows;
+  var row = rows[0];
 
   assert.ok(row, "row is created");
-  assert.equal(koRows().length, 1, "There are 1 row in the panel");
+  assert.equal(rows.length, 1, "There are 1 row in the panel");
   assert.equal(
-    survey.getQuestionByName("q2")["koVisible"](),
+    survey.getQuestionByName("q2").isVisible,
     false,
     "The question is invisible"
   );
@@ -659,14 +682,14 @@ QUnit.test("Load Panel from Json + isSinglePage", function(assert) {
   };
   var survey = new Survey(json);
   var page = survey.pages[0];
-  var koRows = page["koRows"];
-  var row = koRows()[1];
+  var rows = (<Page>page).rows;
+  var row = rows[1];
 
   assert.ok(row, "the second row is created");
   assert.equal(row.elements.length, 1, "There is one element here");
   assert.equal(row.visible, true, "Row is visible");
   var q = row.elements[0];
-  assert.equal(q["koVisible"](), true, "The question is visible");
+  assert.equal(q.isVisible, true, "The question is visible");
 });
 
 QUnit.test("Load PanelDynamic from Json", function(assert) {
@@ -699,12 +722,12 @@ QUnit.test("Load PanelDynamic from Json", function(assert) {
   assert.equal(question.panelCount, 3, "panelCount loaded correctly");
   assert.equal(question["koPanels"]().length, 3, "There are 3 panels now");
   var panel = question["koPanels"]()[0];
-  assert.equal(panel.koVisible(), true, "Panel is visible");
-  assert.equal(panel["koRows"]().length, 2, "Two questions - two rows");
-  var row = <QuestionRow>panel["koRows"]()[0];
+  assert.equal(panel.isVisible, true, "Panel is visible");
+  assert.equal(panel.rows.length, 2, "Two questions - two rows");
+  var row = <QuestionRow>panel.rows[0];
   assert.ok(row, "the first row is created");
-  assert.equal(row.koElements().length, 1, "there is one question in the row");
-  assert.equal(row.koElements()[0].koVisible(), true, "question is visible");
+  assert.equal(row.elements.length, 1, "there is one question in the row");
+  assert.equal(row.elements[0].visible, true, "question is visible");
   <Question>panel.questions[0].koValue("val1");
   assert.deepEqual(
     question.value,
@@ -781,31 +804,31 @@ QUnit.test("Load PanelDynamic from Json, nested panel", function(assert) {
     1,
     "there is one element in the nested panel"
   );
-  assert.equal(panel.koVisible(), true, "Panel is visible");
-  assert.equal(nestedPanel.koVisible(), true, "Nested panel is visible");
-  assert.equal(panel["koRows"]().length, 2, "Two elements - two rows");
-  var row1 = <QuestionRow>panel["koRows"]()[0];
-  var row2 = <QuestionRow>panel["koRows"]()[1];
+  assert.equal(panel.isVisible, true, "Panel is visible");
+  assert.equal(nestedPanel.isVisible, true, "Nested panel is visible");
+  assert.equal(panel.rows.length, 2, "Two elements - two rows");
+  var row1 = <QuestionRow>panel.rows[0];
+  var row2 = <QuestionRow>panel.rows[1];
   assert.ok(row1, "the first row is created");
-  assert.equal(row1.koElements().length, 1, "there is one element in the row");
-  assert.equal(row1.koElements()[0].koVisible(), true, "element is visible");
+  assert.equal(row1.elements.length, 1, "there is one element in the row");
+  assert.equal(row1.elements[0].visible, true, "element is visible");
   assert.ok(row2, "the second row is created");
-  assert.equal(row2.koElements().length, 1, "there is one element in the row");
-  assert.equal(row2.koElements()[0].koVisible(), true, "element is visible");
+  assert.equal(row2.elements.length, 1, "there is one element in the row");
+  assert.equal(row2.elements[0].visible, true, "element is visible");
   assert.equal(
-    nestedPanel["koRows"]().length,
+    nestedPanel.rows.length,
     1,
     "One element - one row in nested panel"
   );
-  var rowN1 = <QuestionRow>nestedPanel["koRows"]()[0];
+  var rowN1 = <QuestionRow>nestedPanel.rows[0];
   assert.ok(row1, "the nested row is created");
   assert.equal(
-    row1.koElements().length,
+    row1.elements.length,
     1,
     "there is one element in the nested row"
   );
   assert.equal(
-    row1.koElements()[0].koVisible(),
+    row1.elements[0].visible,
     true,
     "element is visible in nested row is visible"
   );
@@ -924,17 +947,13 @@ QUnit.test(
     var panel = <Panel>templatePanel.elements[0];
     assert.ok(panel, "panel is here");
     assert.equal(panel.elements.length, 1, "There is one element in the panel");
-    var rows = panel["koRows"]();
+    var rows = panel.rows;
     assert.ok(rows, "panel rows are here");
     assert.equal(rows.length, 1, "There is one element in the rows");
     var row1 = rows[0];
-    assert.equal(
-      row1.koElements().length,
-      1,
-      "there is one element in the row"
-    );
-    assert.equal(row1.koElements()[0].koVisible(), true, "element is visible");
-    assert.equal(row1.koElements()[0].name, "question2", "It is our question");
+    assert.equal(row1.elements.length, 1, "there is one element in the row");
+    assert.equal(row1.elements[0].visible, true, "element is visible");
+    assert.equal(row1.elements[0].name, "question2", "It is our question");
   }
 );
 
@@ -961,17 +980,13 @@ QUnit.test(
     var panel = <Panel>survey.pages[0].elements[0];
     assert.ok(panel, "panel is here");
     assert.equal(panel.elements.length, 1, "There is one element in the panel");
-    var rows = panel["koRows"]();
+    var rows = panel.rows;
     assert.ok(rows, "panel rows are here");
     assert.equal(rows.length, 1, "There is one element in the rows");
     var row1 = rows[0];
-    assert.equal(
-      row1.koElements().length,
-      1,
-      "there is one element in the row"
-    );
-    assert.equal(row1.koElements()[0].koVisible(), true, "element is visible");
-    assert.equal(row1.koElements()[0].name, "question2", "It is our question");
+    assert.equal(row1.elements.length, 1, "there is one element in the row");
+    assert.equal(row1.elements[0].isVisible, true, "element is visible");
+    assert.equal(row1.elements[0].name, "question2", "It is our question");
   }
 );
 
@@ -1078,12 +1093,12 @@ QUnit.test(
       "There are 3 elements on the single page"
     );
     assert.equal(
-      survey.currentPage["koRows"]().length,
+      survey.currentPage.rows.length,
       3,
       "There are 3 rows on the page"
     );
     assert.equal(
-      survey.currentPage["koRows"]()[2].koVisible(),
+      survey.currentPage.rows[2].visible,
       true,
       "The last row is visible"
     );
@@ -1175,28 +1190,28 @@ QUnit.test(
     var rows = matrix.visibleRows;
     var question = <QuestionText>survey.getQuestionByName("q2");
     assert.equal(
-      panel.panels[0].questions[0]["koIsReadOnly"](),
+      panel.panels[0].questions[0].isReadOnly,
       false,
       "The question is not readonly in panel dynamic"
     );
     assert.equal(
-      rows[0].cells[0].question["koIsReadOnly"](),
+      rows[0].cells[0].question.isReadOnly,
       false,
       "The question is not readonly in matrix dynamic"
     );
     survey.mode = "display";
     assert.equal(
-      question["koIsReadOnly"](),
+      question.isReadOnly,
       true,
       "The standard question is readonly"
     );
     assert.equal(
-      panel.panels[0].questions[0]["koIsReadOnly"](),
+      panel.panels[0].questions[0].isReadOnly,
       true,
       "The question in dynamic panel should be readonly"
     );
     assert.equal(
-      rows[0].cells[0].question["koIsReadOnly"](),
+      rows[0].cells[0].question.isReadOnly,
       true,
       "The question is readonly in matrix dynamic"
     );
@@ -1254,16 +1269,16 @@ QUnit.test("koquestion inside panel vidibleif", function(assert) {
   assert.notOk(q3.isVisible);
   assert.ok(p1.visible);
   assert.notOk(q3.visible);
-  assert.notOk(p1.koVisible());
-  assert.notOk(q3["koVisible"]());
+  assert.notOk(p1.isVisible);
+  assert.notOk(q3.isVisible);
 
   q2.value = ["item2"];
   assert.ok(p1.isVisible);
   assert.ok(q3.isVisible);
   assert.ok(p1.visible);
   assert.ok(q3.visible);
-  assert.ok(p1.koVisible());
-  assert.ok(q3["koVisible"]());
+  assert.ok(p1.isVisible);
+  assert.ok(q3.isVisible);
 });
 
 QUnit.test(
@@ -1285,17 +1300,9 @@ QUnit.test(
     };
     var survey = new Survey(json);
     var q = <QuestionMultipleText>survey.getQuestionByName("question1");
-    assert.equal(
-      q.items[0].editor["koIsReadOnly"](),
-      true,
-      "It should be readonly"
-    );
+    assert.equal(q.items[0].editor.isReadOnly, true, "It should be readonly");
     survey.mode = "edit";
-    assert.equal(
-      q.items[0].editor["koIsReadOnly"](),
-      false,
-      "It is editable now"
-    );
+    assert.equal(q.items[0].editor.isReadOnly, false, "It is editable now");
   }
 );
 
@@ -1337,8 +1344,48 @@ QUnit.test("Dynamic Panel bug with localization, bug #1184", function(assert) {
   var survey = new Survey(json);
   survey.isSinglePage = true;
   var q = <QuestionPanelDynamic>survey.getQuestionByName("question102");
-  var locQ = <Question>q.panels[0].questions[0];
+  var panelJsonOriginal = {
+    elements: [
+      {
+        type: "radiogroup",
+        name: "question91",
+        title: {
+          de: "Wählen Sie eine Option"
+        },
+        choices: [
+          {
+            value: "Option 1/2",
+            text: "Option 1/2"
+          },
+          {
+            value: "Option 3",
+            text: "Option 3"
+          },
+          {
+            value: "Option 4",
+            text: "Option 4"
+          }
+        ]
+      }
+    ]
+  };
+  var qJson = q.template.toJSON();
+  delete qJson["title"];
+  assert.deepEqual(
+    qJson,
+    panelJsonOriginal,
+    "Dynamic Panel template restored correctly"
+  );
 
+  qJson = q.panels[0].toJSON();
+  delete qJson["title"];
+  assert.deepEqual(
+    qJson,
+    panelJsonOriginal,
+    "Dynamic Panel, first Panel  restored correctly"
+  );
+
+  var locQ = <Question>q.panels[0].questions[0];
   assert.equal(locQ.getLocale(), "de", "locale is 'de'");
 
   assert.equal(
@@ -1358,9 +1405,17 @@ QUnit.test(
   function(assert) {
     var q = new QuestionImagePicker("question1");
     q.endLoadingFromJson();
-    assert.equal(q.getItemClass({}), "sv_q_imgsel sv-q-col-1", "No exception");
+    assert.equal(
+      q.getItemClass({}),
+      "sv_q_imgsel sv_q_imagepicker_inline",
+      "No exception"
+    );
     q.multiSelect = true;
-    assert.equal(q.getItemClass({}), "sv_q_imgsel sv-q-col-1", "No exception");
+    assert.equal(
+      q.getItemClass({}),
+      "sv_q_imgsel sv_q_imagepicker_inline",
+      "No exception"
+    );
   }
 );
 
@@ -1574,3 +1629,102 @@ QUnit.test("Loc string text preprocessing update on change value", function(
     "The first value"
   );
 });
+QUnit.test("question.paddingLeft and question.paddingRight", function(assert) {
+  var survey = new Survey({
+    elements: [{ type: "panel", name: "p1" }]
+  });
+  var panel = <Panel>survey.getPanelByName("p1");
+  assert.equal(panel.paddingLeft, "", "left is empty");
+  assert.equal(panel.paddingRight, "", "right is empty");
+  panel.innerIndent = 1;
+  panel.rightIndent = 2;
+  panel.indent = 3;
+  assert.equal(panel.innerPaddingLeft, "20px", "inner left is not empty");
+  assert.equal(panel.paddingRight, "40px", "right is not empty");
+  assert.equal(panel.paddingLeft, "60px", "left is not empty");
+});
+QUnit.test("panel and question paddings form json", function(assert) {
+  var survey = new Survey({
+    elements: [
+      {
+        type: "panel",
+        name: "p1",
+        innerIndent: 2,
+        indent: 3
+      },
+      { type: "text", name: "q1", indent: 1 }
+    ]
+  });
+  var panel = <Panel>survey.getPanelByName("p1");
+  var question = <Question>survey.getQuestionByName("q1");
+  assert.equal(panel.paddingLeft, "60px", "panel left is 60px");
+  assert.equal(panel.innerPaddingLeft, "40px", "panel inner left is 40px");
+  assert.equal(question.paddingLeft, "20px", "question left is 20px");
+});
+QUnit.test("Questions are randomized", function(assert) {
+  var survey = new Survey({
+    elements: [
+      {
+        type: "text",
+        name: "question1"
+      },
+      {
+        type: "text",
+        name: "question2"
+      },
+      {
+        type: "text",
+        name: "question3"
+      }
+    ],
+    questionsOrder: "random"
+  });
+  var page = survey.pages[0];
+  assert.equal(page.areQuestionsRandomized, true, "Questions are randomized");
+  assert.equal(page.rows.length, 3, "There are 3 rows");
+});
+function doTimer(count: number) {
+  for (var i = 0; i < count; i++) {
+    SurveyTimer.instance.doTimer();
+  }
+}
+QUnit.test(
+  "Complete pages by timer and questionsOrder = 'random', Bug#1406",
+  function(assert) {
+    var survey = new Survey({
+      pages: [
+        {
+          name: "startPage",
+          element: [{ type: "text", name: "startQuestion" }]
+        },
+        {
+          name: "page1",
+          elements: [{ type: "text", name: "q1" }, { type: "text", name: "q2" }]
+        },
+        {
+          name: "page2",
+          elements: [
+            { type: "text", name: "q3" },
+            { type: "text", name: "q4" }
+          ],
+          maxTimeToFinish: 5
+        }
+      ],
+      firstPageIsStarted: true,
+      maxTimeToFinishPage: 10,
+      questionsOrder: "random",
+      showTimerPanel: "top"
+    });
+    survey.start();
+    assert.equal(survey.state, "running", "The state is running");
+    assert.equal(survey.currentPage.name, "page1", "The first page");
+    doTimer(5);
+    assert.equal(survey.state, "running", "The state is still running");
+    assert.equal(survey.currentPage.name, "page1", "The first page");
+    doTimer(5);
+    assert.equal(survey.state, "running", "The state is still running");
+    assert.equal(survey.currentPage.name, "page2", "The second first page");
+    doTimer(5);
+    assert.equal(survey.state, "completed", "The survey is completed");
+  }
+);

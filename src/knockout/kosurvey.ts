@@ -11,7 +11,7 @@ import {
 } from "../questionCustomWidgets";
 import { LocalizableString } from "../localizablestring";
 import { ItemValue } from "../itemvalue";
-import { QuestionRatingModel } from "../question_rating";
+import { ImplementorBase } from "./kobase";
 
 CustomWidgetCollection.Instance.onCustomWidgetAdded.add(customWidget => {
   if (customWidget.widgetJson.isDefaultRender) return;
@@ -55,12 +55,32 @@ export class Survey extends SurveyModel {
   koCompletedStateCss: any;
   koTimerInfoText: any;
 
+  // public getDataValueCore(valuesHash: any, key: string) {
+  //   if (valuesHash[key] === undefined) {
+  //     valuesHash[key] = ko.observable();
+  //   }
+  //   return ko.unwrap(valuesHash[key]);
+  // }
+  // public setDataValueCore(valuesHash: any, key: string, value: any) {
+  //   valuesHash[key] !== undefined
+  //     ? valuesHash[key](value)
+  //     : (valuesHash[key] = ko.observable(value));
+  // }
+  // public deleteDataValueCore(valuesHash: any, key: string) {
+  //   if (ko.isWriteableObservable(valuesHash[key])) {
+  //     valuesHash[key](undefined);
+  //   } else {
+  //     delete valuesHash[key];
+  //   }
+  // }
+
   constructor(
     jsonObj: any = null,
     renderedElement: any = null,
     css: any = null
   ) {
     super(jsonObj);
+    new ImplementorBase(this);
     if (css) {
       this.css = css;
     }
@@ -146,7 +166,10 @@ export class Survey extends SurveyModel {
     super.clear(clearData, gotoFirstPage);
     this.render();
   }
-  public koEventAfterRender(element, survey) {
+  protected onLocaleChanged() {
+    this.render();
+  }
+  public koEventAfterRender(element: any, survey: any) {
     survey.onRendered.fire(self, {});
     survey.afterRenderSurvey(element);
   }
@@ -213,7 +236,7 @@ export class Survey extends SurveyModel {
     this.koCompletedStateText = ko.observable("");
     this.koCompletedStateCss = ko.observable("");
     this.koTimerInfoText = ko.observable(this.timerInfoText);
-    this.koAfterRenderPage = function(elements, con) {
+    this.koAfterRenderPage = function(elements: any, con: any) {
       var el = SurveyElement.GetFirstNonTextElement(elements);
       if (el) self.afterRenderPage(el);
     };
@@ -278,6 +301,10 @@ LocalizableString.prototype["onCreating"] = function() {
     self.koReRender();
     return self.renderedHtml;
   });
+};
+
+ItemValue.prototype["onCreating"] = function() {
+  new ImplementorBase(this);
 };
 
 LocalizableString.prototype["onChanged"] = function() {

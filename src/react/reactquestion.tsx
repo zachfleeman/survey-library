@@ -17,72 +17,37 @@ export class SurveyQuestion extends SurveyElementBase {
   private creator: ISurveyCreator;
   constructor(props: any) {
     super(props);
-    this.setQuestion(props.question);
-    this.state = this.getState();
+    this.updateProps(props);
+  }
+  private updateProps(props: any) {
     this.creator = props.creator;
+    this.question = props.question;
   }
   componentWillReceiveProps(nextProps: any) {
-    this.creator = nextProps.creator;
-    this.setQuestion(nextProps.question);
-    this.setState(this.getState());
-  }
-  private setQuestion(question) {
-    this.question = question;
+    this.unMakeBaseElementReact(this.question);
+    this.updateProps(nextProps);
     this.makeBaseElementReact(this.question);
   }
-  private getState() {
-    var value = this.question ? this.question.value : null;
-    return {
-      visible: this.question.visible,
-      value: value,
-      error: 0,
-      renderWidth: 0,
-      visibleIndexValue: -1,
-      isReadOnly: this.question.isReadOnly
-    };
+  componentWillMount() {
+    this.makeBaseElementReact(this.question);
   }
   componentDidMount() {
-    if (this.question) {
-      var self = this;
-      this.question["react"] = self;
-      this.question.registerFunctionOnPropertiesValueChanged(
-        ["renderWidth", "indent", "rightIndent"],
-        function() {
-          self.setState({ renderWidth: self.state.renderWidth + 1 });
-        },
-        "react"
-      );
-      this.question.registerFunctionOnPropertyValueChanged(
-        "visibleIndex",
-        function() {
-          self.setState({ visibleIndexValue: self.question.visibleIndex });
-        },
-        "react"
-      );
-      this.question.registerFunctionOnPropertyValueChanged(
-        "isReadOnly",
-        function() {
-          self.setState({ isReadOnly: self.question.isReadOnly });
-        },
-        "react"
-      );
+    if (!!this.question) {
+      this.question["react"] = this;
     }
     this.doAfterRender();
   }
   componentWillUnmount() {
-    if (this.question) {
+    if (!!this.question) {
       this.question["react"] = null;
-      this.question.unRegisterFunctionOnPropertiesValueChanged(
-        ["visibleIndex", "renderWidth", "indent", "rightIndent, isReadOnly"],
-        "react"
-      );
-      var el: any = this.refs["root"];
-      if (!!el) {
-        el.removeAttribute("data-rendered");
-      }
+    }
+    this.unMakeBaseElementReact(this.question);
+    var el: any = this.refs["root"];
+    if (!!el) {
+      el.removeAttribute("data-rendered");
     }
   }
-  componentDidUpdate(prevProps, prevState) {
+  componentDidUpdate(prevProps: any, prevState: any) {
     this.doAfterRender();
   }
   private doAfterRender() {
@@ -100,7 +65,7 @@ export class SurveyQuestion extends SurveyElementBase {
   }
   render(): JSX.Element {
     if (!this.question || !this.creator) return null;
-    if (!this.question.visible) return null;
+    if (!this.question.isVisible) return null;
     var cssClasses = this.question.cssClasses;
     var questionRender = this.renderQuestion();
     var title = this.question.hasTitle ? this.renderTitle(cssClasses) : null;
@@ -130,19 +95,13 @@ export class SurveyQuestion extends SurveyElementBase {
       this.creator.questionErrorLocation() === "top" ? errors : null;
     var errorsBottom =
       this.creator.questionErrorLocation() === "bottom" ? errors : null;
-    var paddingLeft =
-      this.question.indent > 0
-        ? this.question.indent * cssClasses.indent + "px"
-        : null;
-    var paddingRight =
-      this.question.rightIndent > 0
-        ? this.question.rightIndent * cssClasses.indent + "px"
-        : null;
-    let rootStyle = {};
+    let rootStyle: { [index: string]: any } = {};
     if (this.question.renderWidth)
       rootStyle["width"] = this.question.renderWidth;
-    if (paddingLeft) rootStyle["paddingLeft"] = paddingLeft;
-    if (paddingRight) rootStyle["paddingRight"] = paddingRight;
+    if (!!this.question.paddingLeft)
+      rootStyle["paddingLeft"] = this.question.paddingLeft;
+    if (!!this.question.paddingRight)
+      rootStyle["paddingRight"] = this.question.paddingRight;
 
     return (
       <div
@@ -183,7 +142,7 @@ export class SurveyQuestion extends SurveyElementBase {
     return <h5 className={cssClasses.title}>{titleText}</h5>;
   }
   protected renderDescription(cssClasses: any): JSX.Element {
-    if (!this.question.hasDescription) return null;
+    if (this.question.locDescription.isEmpty) return null;
     var descriptionText = SurveyElementBase.renderLocString(
       this.question.locDescription
     );
@@ -230,10 +189,10 @@ export class SurveyElementErrors extends ReactSurveyElement {
     this.setState(this.getState());
     this.creator = nextProps.creator;
   }
-  private setElement(element) {
+  private setElement(element: any) {
     this.element = element instanceof SurveyElement ? element : null;
   }
-  private getState(prevState = null) {
+  private getState(prevState: any = null) {
     return !prevState ? { error: 0 } : { error: prevState.error + 1 };
   }
   render(): JSX.Element {
@@ -254,16 +213,22 @@ export class SurveyElementErrors extends ReactSurveyElement {
 }
 
 export class SurveyQuestionAndErrorsCell extends ReactSurveyElement {
+  [index: string]: any;
   private questionValue: Question;
   protected creator: ISurveyCreator;
   constructor(props: any) {
     super(props);
     this.setProperties(props);
-    this.state = this.getState();
   }
   componentWillReceiveProps(nextProps: any) {
+    if (this.question) {
+      this.unMakeBaseElementReact(this.question);
+    }
     super.componentWillReceiveProps(nextProps);
     this.setProperties(nextProps);
+    if (this.question) {
+      this.makeBaseElementReact(this.question);
+    }
   }
   protected setProperties(nextProps: any) {
     this.question = nextProps.question;
@@ -274,7 +239,6 @@ export class SurveyQuestionAndErrorsCell extends ReactSurveyElement {
   }
   protected set question(val: Question) {
     this.questionValue = val;
-    this.makeBaseElementReact(this.question);
   }
   private getState(increaseError: boolean = false): any {
     if (!this.question) return;
@@ -283,39 +247,22 @@ export class SurveyQuestionAndErrorsCell extends ReactSurveyElement {
     if (increaseError) error++;
     return { isReadOnly: q.isReadOnly, visible: q.visible, error: error };
   }
+  componentWillMount() {
+    this.makeBaseElementReact(this.question);
+  }
   componentDidMount() {
     this.doAfterRender();
-    if (this.question) {
-      var self = this;
-      this.question.registerFunctionOnPropertyValueChanged(
-        "isReadOnly",
-        function() {
-          self.setState(self.getState());
-        },
-        "react"
-      );
-      this.question.registerFunctionOnPropertyValueChanged(
-        "visible",
-        function() {
-          self.setState(self.getState());
-        },
-        "react"
-      );
-    }
   }
   componentWillUnmount() {
     if (this.question) {
-      this.question.unRegisterFunctionOnPropertiesValueChanged(
-        ["visible", "isReadOnly"],
-        "react"
-      );
+      this.unMakeBaseElementReact(this.question);
       var el: any = this.refs["cell"];
       if (!!el) {
         el.removeAttribute("data-rendered");
       }
     }
   }
-  componentDidUpdate(prevProps, prevState) {
+  componentDidUpdate(prevProps: any, prevState: any) {
     this.doAfterRender();
   }
   protected doAfterRender() {}
@@ -337,7 +284,7 @@ export class SurveyQuestionAndErrorsCell extends ReactSurveyElement {
         ref="cell"
         className={this.getCellClass()}
         headers={
-          this.question.visible && !!this["cell"]
+          this.question.isVisible && !!this["cell"]
             ? this["cell"].column.locTitle.renderedHtml
             : ""
         }

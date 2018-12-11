@@ -19,34 +19,20 @@ export class SurveyQuestionText extends SurveyQuestionElementBase {
     super.componentWillReceiveProps(nextProps);
     this.setState({ value: this.getValue(this.question.value) });
   }
-  handleOnChange(event) {
+  handleOnChange(event: any) {
     this.setState({ value: this.getValue(event.target.value) });
   }
-  handleOnBlur(event) {
+  handleOnBlur(event: any) {
     this.question.value = event.target.value;
     this.setState({ value: this.getValue(this.question.value) });
   }
   render(): JSX.Element {
     if (!this.question) return null;
     var cssClasses = this.question.cssClasses;
-    if (this.isDisplayMode) {
-      return (
-        <input
-          disabled={true}
-          id={this.question.inputId}
-          className={cssClasses.root}
-          type={this.question.inputType}
-          value={this.state.value}
-          maxLength={this.question.getMaxLength()}
-          size={this.question.size}
-          placeholder={this.question.placeHolder}
-          aria-label={this.question.locTitle.renderedHtml}
-        />
-      );
-    }
     return (
       <input
         id={this.question.inputId}
+        disabled={this.isDisplayMode}
         className={cssClasses.root}
         type={this.question.inputType}
         value={this.state.value}

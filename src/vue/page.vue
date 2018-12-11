@@ -1,7 +1,7 @@
 <template>
     <div :class="css.page.root">
         <h4 v-show="hasTitle" :class="css.pageTitle"><survey-string :locString="page.locTitle"/></h4>
-        <div v-show="hasDescription" :class="css.pageDescription"><survey-string :locString="page.locDescription"/></div>
+        <div :class="css.pageDescription"><survey-string :locString="page.locDescription"/></div>
         <div v-for="(row, index) in rows" v-if="row.visible" :key="page.id + '_' + index" :class="css.row">
             <survey-row :row="row" :survey="survey" :css="css"></survey-row>
         </div>
@@ -14,12 +14,9 @@ import { Component, Prop } from "vue-property-decorator";
 import { surveyCss } from "../defaultCss/cssstandard";
 import { SurveyModel } from "../survey";
 import { PageModel } from "../page";
-import { helpers } from "./helpers";
 import { PanelModelBase, PanelModel, QuestionRowModel } from "../panel";
 
-@Component({
-  mixins: [helpers]
-})
+@Component
 export class Page extends Vue {
   @Prop() survey: SurveyModel;
   @Prop() page: PageModel;
@@ -48,9 +45,6 @@ export class Page extends Vue {
   }
   get hasTitle() {
     return !!this.page.title && this.survey.showPageTitles;
-  }
-  get hasDescription() {
-    return !!this.page.description;
   }
   get num() {
     return this.page.num > 0 ? this.page.num + ". " : "";
