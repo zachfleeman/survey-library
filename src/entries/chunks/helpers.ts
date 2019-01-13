@@ -1,3 +1,34 @@
+declare var Reflect: any;
+
+export var extendsStatic = function(thisClass: any, baseClass: any):any {
+  extendsStatic =
+    (<any>Object)["setPrototypeOf"] ||
+    ({ __proto__: [] } instanceof Array &&
+      function(thisClass: any, baseClass: any) {
+        thisClass.__proto__ = baseClass;
+      }) ||
+    function(thisClass: any, baseClass: any) {
+      for (var prop in baseClass)
+        if (baseClass.hasOwnProperty(prop)) {
+          thisClass[prop] = baseClass[prop];
+        }
+    };
+  return extendsStatic(thisClass, baseClass);
+};
+
+export function __extends(thisClass: any, baseClass: any) {
+  extendsStatic(thisClass, baseClass);
+
+  function __() {
+    this.constructor = thisClass;
+  }
+
+  thisClass.prototype =
+    baseClass === null
+      ? Object.create(baseClass)
+      : ((__.prototype = baseClass.prototype), new (<any>__)());
+}
+
 export var __assign =
   (<any>Object)["assign"] ||
   function(target: any) {
@@ -8,20 +39,6 @@ export var __assign =
     }
     return target;
   };
-
-export function __extends(thisClass: any, baseClass: any) {
-  for (var p in baseClass)
-    if (baseClass.hasOwnProperty(p)) thisClass[p] = baseClass[p];
-  function __() {
-    this.constructor = thisClass;
-  }
-  thisClass.prototype =
-    baseClass === null
-      ? Object.create(baseClass)
-      : ((__.prototype = baseClass.prototype), new (<any>__)());
-}
-
-declare var Reflect:any;
 
 export var __decorate = function(
   decorators: any,
