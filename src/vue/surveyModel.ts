@@ -33,6 +33,25 @@ export class VueSurveyModel extends SurveyModel {
   set css(value: any) {
     this.mergeValues(value, this.css);
   }
+  public get data () {
+    var result: { [index: string]: any } = {};
+    for (var key in this.valuesHash) {
+      result[key] = this.getDataValueCore(this.valuesHash, key);
+    }
+    return JSON.parse(JSON.stringify(result));
+  }
+  public set data(data: any) {
+    this.valuesHash = {};
+    if (data) {
+      for (var key in data) {
+        this.setDataValueCore(this.valuesHash, key, data[key]);
+      }
+    }
+    this.checkTriggers(this.valuesHash, false);
+    this.notifyAllQuestionsOnValueChanged();
+    this.notifyElementsOnAnyValueOrVariableChanged("");
+    this.runConditions();
+  }
   public setDataValueCore(valuesHash: any, key: string, value: any) {
     Vue.set(valuesHash, key, value);
   }

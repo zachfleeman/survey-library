@@ -67,7 +67,7 @@ export class SurveyModel extends Base
     this.setPropertyValue("currentPageValue", val);
   }
 
-  private valuesHash: HashTable<any> = {};
+  protected valuesHash: HashTable<any> = {};
   private variablesHash: HashTable<any> = {};
 
   private localeValue: string = "";
@@ -2458,7 +2458,7 @@ export class SurveyModel extends Base
     }
     this.notifyElementsOnAnyValueOrVariableChanged(valueName);
   }
-  private notifyElementsOnAnyValueOrVariableChanged(name: string) {
+  protected notifyElementsOnAnyValueOrVariableChanged(name: string) {
     if (this.isEndLoadingFromJson === "processing") return;
     for (var i = 0; i < this.pages.length; i++) {
       this.pages[i].onAnyValueChanged(name);
@@ -2467,7 +2467,7 @@ export class SurveyModel extends Base
       this.locStrsChanged();
     }
   }
-  private notifyAllQuestionsOnValueChanged() {
+  protected notifyAllQuestionsOnValueChanged() {
     var questions = this.getAllQuestions();
     for (var i: number = 0; i < questions.length; i++) {
       this.doSurveyValueChanged(
@@ -2500,7 +2500,7 @@ export class SurveyModel extends Base
     }
     return result;
   }
-  private checkTriggers(key: any, isOnNextPage: boolean) {
+  protected checkTriggers(key: any, isOnNextPage: boolean) {
     if (this.isCompleted || this.triggers.length == 0) return;
     var values = this.getFilteredValues();
     var properties = this.getFilteredProperties();
@@ -2516,7 +2516,7 @@ export class SurveyModel extends Base
       this.pages[i].onSurveyLoad();
     }
   }
-  private runConditions() {
+  protected runConditions() {
     if (this.isCompleted || this.isEndLoadingFromJson === "processing") return;
     var pages = this.pages;
     var values = this.getFilteredValues();
