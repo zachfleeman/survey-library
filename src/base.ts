@@ -230,6 +230,9 @@ export interface IQuestion extends IElement, ISurveyErrorOwner {
   isAnswerCorrect(): boolean;
   updateValueWithDefaults(): any;
   getQuestionFromArray(name: string, index: number): IQuestion;
+  dimension: any;
+  subDimension: any;
+  level: any;
   value: any;
   survey: any;
 }

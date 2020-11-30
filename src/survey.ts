@@ -917,6 +917,7 @@ export class SurveyModel
     }
     this.createLocalizableString("title", this, true);
     this.createLocalizableString("description", this, true);
+    this.createLocalizableString("team", this);
     this.createLocalizableString("logo", this, false);
     this.createLocalizableString("completedHtml", this);
     this.createLocalizableString("completedBeforeHtml", this);
@@ -2131,6 +2132,7 @@ export class SurveyModel
       page.setPropertyValue("isReadOnly", page.isReadOnly);
     }
   }
+ 
   /**
    * Gets or sets an object that stores the survey results/data. You can set it directly as `{ 'question name': questionValue, ... }`
    *
@@ -2141,13 +2143,19 @@ export class SurveyModel
    * @see currentPageNo
    */
   public get data(): any {
-    var result: { [index: string]: any } = {};
+    var result: { [index: string] : any;} = {};
     var keys = this.getValuesKeys();
     for (var i = 0; i < keys.length; i++) {
       var key = keys[i];
+      var question = this.getQuestionByValueName(key);
       var dataValue = this.getDataValueCore(this.valuesHash, key);
       if (dataValue !== undefined) {
-        result[key] = dataValue;
+        result[key] = {
+          answer: dataValue,
+          dimension: question.dimension,
+          subDimension: question.subDimension,
+          level: question.level
+        }
       }
     }
     this.setCalcuatedValuesIntoResult(result);

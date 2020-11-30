@@ -133,6 +133,10 @@ export class Question
         self.initCommentFromSurvey();
       }
     );
+
+    this.createLocalizableString("dimension", this);
+    this.createLocalizableString("subDimension", this);
+    this.createLocalizableString("level", this);
   }
   public getValueName(): string {
     if (!!this.valueName) return this.valueName.toString();
@@ -484,6 +488,42 @@ export class Question
       };
     }
     return undefined;
+  }
+  /**
+   * Question dimension
+   */
+  public get dimension(): string {
+    return this.getLocalizableStringText("dimension");
+  }
+  public set dimension(val: string) {
+    this.setLocalizableStringText("dimension", val);
+  }
+  get locDimension(): LocalizableString {
+    return this.getLocalizableString("dimension");
+  }
+  /**
+   *  Question sub-dimension
+   */
+  public get subDimension(): string {
+    return this.getLocalizableStringText("subDimension");
+  }
+  public set subDimension(val: string) {
+    this.setLocalizableStringText("subDimension", val);
+  }
+  get locSubDimension(): LocalizableString {
+    return this.getLocalizableString("subDimension");
+  }
+  /**
+   * Question level
+   */
+  public get level(): string {
+    return this.getLocalizableStringText("level");
+  }
+  public set level(val: string) {
+    this.setLocalizableStringText("level", val);
+  }
+  get locLevel(): LocalizableString {
+    return this.getLocalizableString("level");
   }
   /**
    * The custom text that will be shown on required error. Use this property, if you do not want to show the default text.
@@ -1723,6 +1763,21 @@ Serializer.addClass("question", [
     name: "description:text",
     serializationProperty: "locDescription",
     layout: "row",
+  },
+  {
+    name: "dimension:text",
+    serializationProperty: "locDimension",
+    layout: "row"
+  },
+  {
+    name: "subDimension:text",
+    serializationProperty: "locSubDimension",
+    layout: "row"
+  },
+  {
+    name: "level:text",
+    serializationProperty: "locLevel",
+    layout: "row"
   },
   {
     name: "descriptionLocation",
